@@ -1,4 +1,4 @@
-package com.example.swiptebytev2
+package com.example.SwipeByte
 
 import org.junit.Test
 

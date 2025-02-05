@@ -1,6 +1,4 @@
-package com.example.swiptebytev2.ui.theme
-
-import android.app.Activity
+package com.example.SwipeByte.ui.theme
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -10,6 +8,9 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.Typography
+
+private val AppTypography = Typography()
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -34,7 +35,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun SwipteByteV2Theme(
+fun SwipeByteTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
@@ -52,7 +53,7 @@ fun SwipteByteV2Theme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = AppTypography,
         content = content
     )
 }

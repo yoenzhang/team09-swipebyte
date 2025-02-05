@@ -1,4 +1,4 @@
-package com.example.swiptebytev2.ui.pages
+package com.example.SwipeByte.ui.pages
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,17 +11,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.swiptebytev2.ui.theme.SwipteByteV2Theme
+import com.example.SwipeByte.ui.theme.SwipeByteTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            SwipteByteV2Theme {
+            SwipeByteTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Greeting(
-                        name = "Android",
+                        name = "OHMY ANDROID",
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -41,7 +41,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    SwipteByteV2Theme {
-        Greeting("Android")
+    SwipeByteTheme {
+        Greeting("OHMY ANDROID")
     }
 }

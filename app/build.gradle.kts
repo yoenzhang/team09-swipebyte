@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.swiptebytev2"
+    namespace = "com.example.SwipeByte"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.swiptebytev2"
+        applicationId = "com.example.SwipeByte"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -56,4 +56,5 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    implementation("androidx.compose.material3:material3:1.2.0")
 }
