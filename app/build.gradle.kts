@@ -66,6 +66,10 @@ dependencies {
     // Image Loading (Coil for Jetpack Compose)
     implementation("io.coil-kt:coil-compose:2.2.2") // ✅ Required for image loading in HomeView
 
+    // **Accompanist Pager (For Vertical Swiping)**
+    implementation("com.google.accompanist:accompanist-pager:0.30.1") // ✅ Required for vertical paging
+    implementation("com.google.accompanist:accompanist-pager-indicators:0.30.1") // Optional indicators
+
     // Hilt (if using dependency injection)
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0") // ✅ Optional but recommended
 

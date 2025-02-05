@@ -2,7 +2,6 @@ package com.example.SwipeByte.ui.pages
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,6 +13,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberImagePainter
+import com.google.accompanist.pager.*
+import kotlinx.coroutines.launch
 
 data class Restaurant(
     val name: String,
@@ -23,6 +24,7 @@ data class Restaurant(
     val imageUrl: String
 )
 
+@OptIn(ExperimentalPagerApi::class)
 @Composable
 fun HomeView(navController: NavController) {
     val restaurantList = listOf(
@@ -36,13 +38,15 @@ fun HomeView(navController: NavController) {
             "https://www.pizzahut.com/assets/w/tile/th-menu-icon.jpg")
     )
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        items(restaurantList.size) { index ->
-            RestaurantCard(restaurantList[index])
+    val pagerState = rememberPagerState()
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        VerticalPager(
+            state = pagerState, // ✅ Enables vertical swiping
+            count = restaurantList.size,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            RestaurantCard(restaurantList[page])
         }
     }
 }
@@ -51,48 +55,55 @@ fun HomeView(navController: NavController) {
 fun RestaurantCard(restaurant: Restaurant) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize() // ✅ Makes each card fill the screen
             .padding(16.dp),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxSize()
         ) {
             Image(
                 painter = rememberImagePainter(restaurant.imageUrl),
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .weight(0.5f) // ✅ 50% screen height for the image
                     .clip(RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Crop
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = restaurant.name,
-                fontSize = 22.sp,
-                modifier = Modifier.padding(8.dp),
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Text(
-                text = restaurant.cuisine,
-                fontSize = 18.sp,
-                modifier = Modifier.padding(8.dp),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text(
-                text = restaurant.rating,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(8.dp),
-                style = MaterialTheme.typography.bodySmall
-            )
-            Text(
-                text = restaurant.distance,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(8.dp),
-                style = MaterialTheme.typography.bodySmall
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.5f) // ✅ 50% screen height for text
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = restaurant.name,
+                    fontSize = 24.sp,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Text(
+                    text = restaurant.cuisine,
+                    fontSize = 18.sp,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = restaurant.rating,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = restaurant.distance,
+                    fontSize = 16.sp,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     }
 }
