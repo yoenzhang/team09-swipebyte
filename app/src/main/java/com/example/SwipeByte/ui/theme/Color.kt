@@ -1,5 +1,4 @@
 package com.example.SwipeByte.ui.theme
-
 import androidx.compose.ui.graphics.Color
 
 val Red = Color(0xFFD62828)      // Primary Red
