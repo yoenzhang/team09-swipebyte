@@ -1,4 +1,4 @@
-package com.example.swipebyte.ui.pages
+package com.example.Swipebyte.ui.pages
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -7,7 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.swipebyte.navigation.Screen
+import com.example.Swipebyte.navigation.Screen
 
 @Composable
 fun NotificationsView(navController: NavController) {
@@ -16,7 +16,7 @@ fun NotificationsView(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "🔔 Notifications View", style = MaterialTheme.typography.headlineLarge)
+        Text(text = "🔔 Notifications", style = MaterialTheme.typography.headlineLarge)
 
         Spacer(modifier = Modifier.height(16.dp))
 

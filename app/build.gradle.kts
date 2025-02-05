@@ -29,12 +29,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17 // ✅ Upgraded to Java 17 for performance
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17" // ✅ Ensures compatibility with latest Kotlin features
     }
 
     buildFeatures {
@@ -62,6 +62,9 @@ dependencies {
 
     // Navigation for Jetpack Compose
     implementation("androidx.navigation:navigation-compose:2.7.5") // ✅ Navigation support
+
+    // Image Loading (Coil for Jetpack Compose)
+    implementation("io.coil-kt:coil-compose:2.2.2") // ✅ Required for image loading in HomeView
 
     // Hilt (if using dependency injection)
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0") // ✅ Optional but recommended

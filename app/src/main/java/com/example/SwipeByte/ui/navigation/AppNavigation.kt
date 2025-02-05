@@ -6,7 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.*
 import androidx.navigation.compose.*
-import com.example.swipebyte.ui.pages.*
+import com.example.Swipebyte.ui.pages.*
 import com.example.SwipeByte.ui.theme.SwipeByteTheme
 import androidx.navigation.compose.currentBackStackEntryAsState
 
