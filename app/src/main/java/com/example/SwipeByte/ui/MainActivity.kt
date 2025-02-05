@@ -10,7 +10,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SwipeByteTheme { // ✅ Now correctly references the theme
+            SwipeByteTheme {
                 AppNavigation()
             }
         }
