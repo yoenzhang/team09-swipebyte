@@ -1,4 +1,4 @@
-package com.example.swiptebytev2
+package com.example.swiptebytev2.ui.pages
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
