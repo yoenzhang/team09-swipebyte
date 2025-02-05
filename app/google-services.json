@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "896813113082",
+    "project_id": "swipebyte-6d38e",
+    "storage_bucket": "swipebyte-6d38e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:896813113082:android:1d04a76cc69c425bd1b343",
+        "android_client_info": {
+          "package_name": "com.example.SwipeByte"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBuGldhOg6MuCzU0MicO6ucc9tdmOdxo5g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:896813113082:android:4385bfbd5236e7bdd1b343",
+        "android_client_info": {
+          "package_name": "com.example.swipebytev2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBuGldhOg6MuCzU0MicO6ucc9tdmOdxo5g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
