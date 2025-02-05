@@ -1,4 +1,4 @@
-package com.example.Swipebyte.ui.pages
+package com.example.SwipeByte.ui.pages
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberImagePainter
-import com.example.SwipeByte.navigation.Screen
 
 data class Restaurant(
     val name: String,

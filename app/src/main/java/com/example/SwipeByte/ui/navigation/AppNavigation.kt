@@ -1,4 +1,4 @@
-package com.example.swipebyte.navigation  // ✅ Use lowercase for "swipebyte"
+package com.example.SwipeByte.navigation  // ✅ Use lowercase for "swipebyte"
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
@@ -6,7 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.*
 import androidx.navigation.compose.*
-import com.example.Swipebyte.ui.pages.*
+import com.example.SwipeByte.ui.pages.*
 import com.example.SwipeByte.ui.theme.SwipeByteTheme
 import androidx.navigation.compose.currentBackStackEntryAsState
 
