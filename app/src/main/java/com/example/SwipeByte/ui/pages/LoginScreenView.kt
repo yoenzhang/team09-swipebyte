@@ -25,15 +25,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.navigation.NavController
+import com.example.SwipeByte.navigation.Screen
+import com.example.SwipeByte.ui.viewmodel.AuthViewModel
 
-@Preview(showBackground = true)
-@Composable
-fun LoginScreenPreview() {
-    LoginScreen()
-}
 
 @Composable
-fun LoginScreen() {
+fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -72,7 +70,14 @@ fun LoginScreen() {
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = { /* Handle login logic */ },
+            onClick = {
+                authViewModel.login(email, password) // ✅ Calls the login function
+                navController.navigate(Screen.Home.route) {
+                    popUpTo(Screen.Login.route) {
+                        inclusive = true
+                    } // ✅ Remove Login from back stack
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,  // Access color from MaterialTheme

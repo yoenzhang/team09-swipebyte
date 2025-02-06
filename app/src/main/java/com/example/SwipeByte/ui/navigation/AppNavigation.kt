@@ -31,7 +31,11 @@ fun AppNavigation(authViewModel: AuthViewModel) {
 
     SwipeByteTheme {
         Scaffold(
-            bottomBar = { BottomNavigationBar(navController) }
+            bottomBar = {
+                if (isLoggedIn) {
+                    BottomNavigationBar(navController)
+                }
+            }
         ) { innerPadding ->
             NavHost(
                 navController = navController,
@@ -43,7 +47,7 @@ fun AppNavigation(authViewModel: AuthViewModel) {
                 composable(Screen.Notifications.route) { NotificationsView(navController) }
                 composable(Screen.Profile.route) { ProfileView(navController) }
                 composable(Screen.Login.route) {
-                    LoginScreen()
+                    LoginScreen(authViewModel, navController)
                 }
             }
         }
