@@ -17,7 +17,7 @@ import com.example.SwipeByte.ui.viewmodel.AuthViewModel
 sealed class Screen(val route: String, val title: String) {
     object Login : Screen("login", "Login")
     object Home : Screen("home", "Home")
-    object Dashboard : Screen("dashboard", "Dashboard")
+    object DealsOfTheDay : Screen("dealsOfTheDay", "Deals")
     object Notifications : Screen("notifications", "Notifications")
     object Profile : Screen("profile", "Profile")
 }
@@ -43,7 +43,7 @@ fun AppNavigation(authViewModel: AuthViewModel) {
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(Screen.Home.route) { HomeView(navController) }
-                composable(Screen.Dashboard.route) { DashboardView(navController) }
+                composable(Screen.DealsOfTheDay.route) { DealsOfTheDayView(navController) }
                 composable(Screen.Notifications.route) { NotificationsView(navController) }
                 composable(Screen.Profile.route) { ProfileView(navController) }
                 composable(Screen.Login.route) {
@@ -56,7 +56,7 @@ fun AppNavigation(authViewModel: AuthViewModel) {
 
 @Composable
 fun BottomNavigationBar(navController: NavController) {
-    val items = listOf(Screen.Home, Screen.Dashboard, Screen.Notifications, Screen.Profile)
+    val items = listOf(Screen.Home, Screen.DealsOfTheDay, Screen.Notifications, Screen.Profile)
 
     val currentBackStackEntry by navController.currentBackStackEntryAsState() // ✅ FIXED
     val currentRoute = currentBackStackEntry?.destination?.route
