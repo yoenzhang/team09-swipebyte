@@ -1,10 +1,11 @@
 package com.example.SwipeByte.ui.pages
 
-import com.example.SwipeByte.R
+import coil.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavController
 import com.example.SwipeByte.navigation.Screen
 
@@ -43,8 +43,27 @@ fun DealsOfTheDayView(navController: NavController) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(10) { index -> // Replace with your actual data list
-                DealCard()
+            val demoDeals = listOf(
+                Deal("Badiali Pizzeria", "Pizza - $", "4.5 ⭐ (900+)", "0.3 km away", "https://images.unsplash.com/photo-1601924575440-30dc45f7d24b"),
+                Deal("Bar Poet", "Bar, Pizza - $$", "4.6 ⭐ (1,000+)", "0.4 km away", "https://images.unsplash.com/photo-1559628233-93f092d3abfa"),
+                Deal("Sugo", "Italian - $$", "4.7 ⭐ (2,000+)", "0.6 km away", "https://images.unsplash.com/photo-1603079837747-7e0663f64d1e"),
+                Deal("Joe's Diner", "American - $", "4.3 ⭐ (500+)", "0.7 km away", "https://images.unsplash.com/photo-1551218808-94e220e084d2"),
+                Deal("Green Bowl", "Vegan - $$", "4.8 ⭐ (300+)", "0.9 km away", "https://images.unsplash.com/photo-1490645935967-10de6ba17061"),
+                Deal("Taco Town", "Mexican - $$", "4.5 ⭐ (700+)", "1.1 km away", "https://images.unsplash.com/photo-1599999901341-b3d8429a7512"),
+                Deal("Sushi World", "Japanese - $$$", "4.9 ⭐ (1,500+)", "1.3 km away", "https://images.unsplash.com/photo-1594007654731-d7430cdc24ca"),
+                Deal("Burger Haven", "Burgers - $", "4.4 ⭐ (800+)", "1.5 km away", "https://images.unsplash.com/photo-1550547660-d9450f859349"),
+                Deal("Pasta Palace", "Italian - $$", "4.6 ⭐ (600+)", "1.7 km away", "https://images.unsplash.com/photo-1525755662778-989d0524087e"),
+                Deal("Dessert Dreams", "Desserts - $$", "4.7 ⭐ (900+)", "2.0 km away", "https://images.unsplash.com/photo-1599785209707-26dc3e3cc094")
+            )
+
+            items(demoDeals) { deal ->
+                DealCard(
+                    name = deal.name,
+                    category = deal.category,
+                    rating = deal.rating,
+                    distance = deal.distance,
+                    imageUrl = deal.imageUrl
+                )
             }
         }
     }
@@ -75,7 +94,13 @@ fun FilterOptions() {
 }
 
 @Composable
-fun DealCard() {
+fun DealCard(
+    name: String,
+    category: String,
+    rating: String,
+    distance: String,
+    imageUrl: String
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -87,7 +112,7 @@ fun DealCard() {
             horizontalAlignment = Alignment.Start
         ) {
             Image(
-                painter = painterResource(id = R.drawable.pizza), // Replace with actual image
+                painter = rememberAsyncImagePainter(model = imageUrl),
                 contentDescription = "Deal Image",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -98,26 +123,34 @@ fun DealCard() {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Badiali Pizzeria",
+                text = name,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "Pizza - $",
+                text = category,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Gray
             )
             Text(
-                text = "4.5 ⭐ (900+)",
+                text = rating,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Gray
             )
             Text(
-                text = "0.3 km away",
+                text = distance,
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Gray
             )
         }
     }
 }
+
+data class Deal(
+    val name: String,
+    val category: String,
+    val rating: String,
+    val distance: String,
+    val imageUrl: String
+)
