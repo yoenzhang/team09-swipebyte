@@ -18,7 +18,7 @@ sealed class Screen(val route: String, val title: String) {
     object Login : Screen("login", "Login")
     object Home : Screen("home", "Home")
     object DealsOfTheDay : Screen("dealsOfTheDay", "Deals")
-    object Notifications : Screen("notifications", "Notifications")
+    object CommunityFavourites : Screen("communityFavourites", "Community")
     object Profile : Screen("profile", "Profile")
 }
 
@@ -40,7 +40,7 @@ fun AppNavigation(authViewModel: AuthViewModel) {
             ) {
                 composable(Screen.Home.route) { HomeView(navController) }
                 composable(Screen.DealsOfTheDay.route) { DealsOfTheDayView(navController) }
-                composable(Screen.Notifications.route) { NotificationsView(navController) }
+                composable(Screen.CommunityFavourites.route) { CommunityFavouritesView(navController) }
                 composable(Screen.Profile.route) { ProfileView(navController) }
                 composable(Screen.Login.route) {
                     LoginScreen()
@@ -52,7 +52,7 @@ fun AppNavigation(authViewModel: AuthViewModel) {
 
 @Composable
 fun BottomNavigationBar(navController: NavController) {
-    val items = listOf(Screen.Home, Screen.DealsOfTheDay, Screen.Notifications, Screen.Profile)
+    val items = listOf(Screen.Home, Screen.DealsOfTheDay, Screen.CommunityFavourites, Screen.Profile)
 
     val currentBackStackEntry by navController.currentBackStackEntryAsState() // ✅ FIXED
     val currentRoute = currentBackStackEntry?.destination?.route
