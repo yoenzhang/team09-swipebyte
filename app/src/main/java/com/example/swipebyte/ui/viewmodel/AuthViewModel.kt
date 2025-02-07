@@ -1,4 +1,4 @@
-package com.example.SwipeByte.ui.viewmodel
+package com.example.swipebyte.ui.viewmodel
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData

@@ -1,4 +1,4 @@
-package com.example.SwipeByte.ui.pages
+package com.example.swipebyte.ui.pages
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -7,7 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.SwipeByte.navigation.Screen
+import com.example.swipebyte.navigation.Screen
 
 @Composable
 fun ProfileView(navController: NavController) {

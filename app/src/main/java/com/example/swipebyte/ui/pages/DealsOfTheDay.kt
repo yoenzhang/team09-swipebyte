@@ -1,5 +1,6 @@
-package com.example.SwipeByte.ui.pages
+package com.example.swipebyte.ui.pages
 
+import com.example.swipebyte.R
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -15,7 +16,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.navigation.NavController
-import com.example.SwipeByte.navigation.Screen
 
 @Composable
 fun DealsOfTheDayView(navController: NavController) {

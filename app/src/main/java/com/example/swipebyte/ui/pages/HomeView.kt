@@ -1,11 +1,10 @@
-package com.example.SwipeByte.ui.pages
+package com.example.swipebyte.ui.pages
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -13,8 +12,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberImagePainter
+import com.example.swipebyte.ui.db.DBModel
 import com.google.accompanist.pager.*
-import kotlinx.coroutines.launch
 
 data class Restaurant(
     val name: String,
@@ -27,16 +26,13 @@ data class Restaurant(
 @OptIn(ExperimentalPagerApi::class)
 @Composable
 fun HomeView(navController: NavController) {
-    val restaurantList = listOf(
-        Restaurant("Lazeez Shawarma", "Middle Eastern - $$$$", "2.6 ★ (1,000+)", "1.5 km away",
-            "https://d1ralsognjng37.cloudfront.net/83bb5d98-43b6-4b86-bb9e-4c4c89c11a33.jpeg"),
-        Restaurant("Subway", "Fast Food - $$", "3.8 ★ (2,000+)", "800m away",
-            "https://www.subway.com/ns/images/hero/Sandwich_Buffet.jpg"),
-        Restaurant("McDonald's", "Burgers - $$", "4.1 ★ (5,000+)", "500m away",
-            "https://www.mcdonalds.com/content/dam/sites/usa/nfl/publication/1PUB_106_McD_Top20WebsiteRefresh_Photos_QuarterPounderCheese.jpg"),
-        Restaurant("Pizza Hut", "Italian - $$$", "4.0 ★ (3,500+)", "2.0 km away",
-            "https://www.pizzahut.com/assets/w/tile/th-menu-icon.jpg")
-    )
+    val restaurantList = remember { mutableStateListOf<Restaurant>() }
+
+    // Fetch data once when the composable is first launched
+    LaunchedEffect(Unit) {
+        val fetchedRestaurants = DBModel.fetchRestaurants()
+        restaurantList.addAll(fetchedRestaurants)
+    }
 
     val pagerState = rememberPagerState()
 

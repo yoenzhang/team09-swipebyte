@@ -1,4 +1,4 @@
-package com.example.SwipeByte.ui.theme
+package com.example.swipebyte.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
