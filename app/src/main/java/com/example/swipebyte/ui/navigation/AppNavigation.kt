@@ -1,24 +1,27 @@
-package com.example.SwipeByte.navigation  // ✅ Use lowercase for "swipebyte"
+package com.example.swipebyte.ui.navigation  // ✅ Use lowercase for "swipebyte"
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.*
 import androidx.navigation.compose.*
-import com.example.SwipeByte.ui.pages.*
-import com.example.SwipeByte.ui.theme.SwipeByteTheme
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.example.SwipeByte.ui.viewmodel.AuthViewModel
+import com.example.swipebyte.ui.pages.CommunityFavouritesView
+import com.example.swipebyte.ui.pages.DealsOfTheDayView
+import com.example.swipebyte.ui.pages.HomeView
+import com.example.swipebyte.ui.pages.LoginScreen
+import com.example.swipebyte.ui.pages.ProfileView
+import com.example.swipebyte.ui.theme.SwipeByteTheme
+import com.example.swipebyte.ui.viewmodel.AuthViewModel
 
 
 sealed class Screen(val route: String, val title: String) {
     object Login : Screen("login", "Login")
     object Home : Screen("home", "Home")
     object DealsOfTheDay : Screen("dealsOfTheDay", "Deals")
-    object Notifications : Screen("notifications", "Notifications")
+    object CommunityFavourites : Screen("communityFavourites", "Community")
     object Profile : Screen("profile", "Profile")
 }
 
@@ -44,7 +47,7 @@ fun AppNavigation(authViewModel: AuthViewModel) {
             ) {
                 composable(Screen.Home.route) { HomeView(navController) }
                 composable(Screen.DealsOfTheDay.route) { DealsOfTheDayView(navController) }
-                composable(Screen.Notifications.route) { NotificationsView(navController) }
+                composable(Screen.CommunityFavourites.route) { CommunityFavouritesView(navController) }
                 composable(Screen.Profile.route) { ProfileView(navController) }
                 composable(Screen.Login.route) {
                     LoginScreen(authViewModel, navController)
@@ -56,7 +59,12 @@ fun AppNavigation(authViewModel: AuthViewModel) {
 
 @Composable
 fun BottomNavigationBar(navController: NavController) {
-    val items = listOf(Screen.Home, Screen.DealsOfTheDay, Screen.Notifications, Screen.Profile)
+    val items = listOf(
+        Screen.Home,
+        Screen.DealsOfTheDay,
+        Screen.CommunityFavourites,
+        Screen.Profile
+    )
 
     val currentBackStackEntry by navController.currentBackStackEntryAsState() // ✅ FIXED
     val currentRoute = currentBackStackEntry?.destination?.route

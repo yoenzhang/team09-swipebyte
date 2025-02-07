@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.SwipeByte"
+    namespace = "com.example.swipebyte"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.SwipeByte"
+        applicationId = "com.example.swipebyte"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -84,6 +84,7 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.androidx.navigation.runtime.android)
     implementation(libs.androidx.runtime.livedata)
+    implementation(libs.firebase.firestore)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SwipeByte"
+rootProject.name = "swipebyte"
 include(":app")

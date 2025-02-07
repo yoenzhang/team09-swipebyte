@@ -1,4 +1,4 @@
-package com.example.SwipeByte.ui.viewmodel
+package com.example.swipebyte.ui.viewmodel
 
 import android.util.Log
 import androidx.compose.runtime.getValue

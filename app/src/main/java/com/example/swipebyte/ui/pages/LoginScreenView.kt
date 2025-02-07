@@ -1,4 +1,4 @@
-package com.example.SwipeByte.ui.pages
+package com.example.swipebyte.ui.pages
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
