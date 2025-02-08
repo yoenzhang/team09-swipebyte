@@ -58,6 +58,26 @@ class AuthViewModel : ViewModel() {
             }
     }
 
+    fun signUp(email: String?, password: String?, onResult: (Boolean) -> Unit) {
+        if (email.isNullOrEmpty() || password.isNullOrEmpty()) {
+            Log.e("AuthViewModel", "Email or password is empty")
+            onResult(false)  // Return false to indicate failure
+            return
+        }
+
+        firebaseAuth.createUserWithEmailAndPassword(email,password)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    _isLoggedIn.value = true
+                    Log.d("AuthViewModel", "Sign Up successful: ${firebaseAuth.currentUser?.email}")
+                    onResult(true)
+                } else {
+                    _isLoggedIn.value = false
+                    Log.e("AuthViewModel", "Sign Up failed: ${task.exception?.message}")
+                    onResult(false)
+                }
+            }
+    }
     // Optionally handle logout
     fun logout() {
         firebaseAuth.signOut()

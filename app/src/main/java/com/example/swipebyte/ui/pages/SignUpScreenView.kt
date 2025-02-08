@@ -1,5 +1,6 @@
 package com.example.swipebyte.ui.pages
 
+import androidx.compose.runtime.Composable
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,45 +22,40 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withStyle
 import androidx.navigation.NavController
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
 import kotlinx.coroutines.launch
 
-
 @Composable
-fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
+fun SignUpScreen(authViewModel: AuthViewModel, navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    val snackbarHostState = remember { SnackbarHostState() } // Snackbar state
-    val coroutineScope = rememberCoroutineScope() // Coroutine scope for showing the Snackbar
+    var confirmPassword by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) } // Attach SnackbarHost
+        snackbarHost = { SnackbarHost(snackbarHostState) } // Snackbar for messages
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
-                .padding(paddingValues), // Prevent overlap with Snackbar
+                .padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = "Login", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(text = "Sign Up", fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -85,22 +80,43 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
                 shape = RoundedCornerShape(15.dp)
             )
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = confirmPassword,
+                onValueChange = { confirmPassword = it },
+                label = { Text("Confirm Password") },
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(15.dp)
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = {
-                    authViewModel.login(email, password) { success ->
+                    if (email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Fields cannot be empty", duration = SnackbarDuration.Short)
+                        }
+                        return@Button
+                    }
+                    if (password != confirmPassword) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Passwords do not match", duration = SnackbarDuration.Short)
+                        }
+                        return@Button
+                    }
+
+                    authViewModel.signUp(email, password) { success ->
                         if (success) {
                             navController.navigate(Screen.Home.route) {
-                                popUpTo(Screen.Login.route) { inclusive = true }
+                                popUpTo(Screen.SignUp.route) { inclusive = true }
                             }
                         } else {
-                            // Show Snackbar on login failure
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Invalid email or password. Try again.",
-                                    duration = SnackbarDuration.Short
-                                )
+                                snackbarHostState.showSnackbar("Sign-up failed. Try again.", duration = SnackbarDuration.Short)
                             }
                         }
                     }
@@ -111,33 +127,14 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Text(text = "Log in")
+                Text(text = "Sign Up")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // "Don't have an account? Sign up" with "Sign up" as clickable and underlined
-
-
-            ClickableText(
-                text = buildAnnotatedString {
-                    append("Don't have an account? ")
-                    pushStringAnnotation(tag = "signup", annotation = "signup")
-                    withStyle(style = SpanStyle(
-                        textDecoration = TextDecoration.Underline,
-                        color = MaterialTheme.colorScheme.secondary
-                    )) {
-                        append("Sign up")
-                    }
-                    pop()
-                },
-                onClick = { offset ->
-                    // Navigate to Sign-Up screen when "Sign up" is clicked
-                    navController.navigate(Screen.SignUp.route)
-                }
-            )
-
-
+            TextButton(onClick = { navController.navigate(Screen.Login.route) }) {
+                Text(text = "Already have an account? Log in")
+            }
         }
     }
 }

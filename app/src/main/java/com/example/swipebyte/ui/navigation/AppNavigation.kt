@@ -14,12 +14,14 @@ import com.example.swipebyte.ui.pages.DealsOfTheDayView
 import com.example.swipebyte.ui.pages.HomeView
 import com.example.swipebyte.ui.pages.LoginScreen
 import com.example.swipebyte.ui.pages.ProfileView
+import com.example.swipebyte.ui.pages.SignUpScreen
 import com.example.swipebyte.ui.theme.SwipeByteTheme
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
 
 
 sealed class Screen(val route: String, val title: String) {
     object Login : Screen("login", "Login")
+    object SignUp: Screen("signup", "SignUp")
     object Home : Screen("home", "Home")
     object DealsOfTheDay : Screen("dealsOfTheDay", "Deals")
     object CommunityFavourites : Screen("communityFavourites", "Community")
@@ -53,6 +55,9 @@ fun AppNavigation(authViewModel: AuthViewModel) {
                 composable(Screen.Profile.route) { ProfileView(navController) }
                 composable(Screen.Login.route) {
                     LoginScreen(authViewModel, navController)
+                }
+                composable(Screen.SignUp.route) {
+                    SignUpScreen(authViewModel, navController)
                 }
             }
         }
