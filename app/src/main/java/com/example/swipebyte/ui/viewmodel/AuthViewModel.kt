@@ -17,20 +17,43 @@ class AuthViewModel : ViewModel() {
     val isLoggedIn: LiveData<Boolean> get() = _isLoggedIn
 
     init {
-        // Check if the user is already logged in
-        _isLoggedIn.value = firebaseAuth.currentUser != null
+        firebaseAuth.addAuthStateListener { auth ->
+            val user = auth.currentUser
+            Log.d("AuthViewModel", "Auth state changed: User = ${user?.email ?: "No user"}")
+
+            if (user != null) {
+                user.reload().addOnCompleteListener { reloadTask ->
+                    if (reloadTask.isSuccessful) {
+                        _isLoggedIn.value = firebaseAuth.currentUser != null
+                    } else {
+                        Log.e("AuthViewModel", "User reload failed: ${reloadTask.exception?.message}")
+                        _isLoggedIn.value = false
+                    }
+                }
+            } else {
+                _isLoggedIn.value = false
+            }
+        }
     }
 
     // Login function with Firebase
-    fun login(email: String, password: String) {
+    fun login(email: String?, password: String?, onResult: (Boolean) -> Unit) {
+        if (email.isNullOrEmpty() || password.isNullOrEmpty()) {
+            Log.e("AuthViewModel", "Email or password is empty")
+            onResult(false)  // Return false to indicate failure
+            return
+        }
+
         firebaseAuth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     _isLoggedIn.value = true
                     Log.d("AuthViewModel", "Login successful: ${firebaseAuth.currentUser?.email}")
+                    onResult(true)
                 } else {
                     _isLoggedIn.value = false
                     Log.e("AuthViewModel", "Login failed: ${task.exception?.message}")
+                    onResult(false)
                 }
             }
     }

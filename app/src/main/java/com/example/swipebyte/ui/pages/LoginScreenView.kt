@@ -1,5 +1,6 @@
 package com.example.swipebyte.ui.pages
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -26,8 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.navigation.NavController
-import com.example.SwipeByte.navigation.Screen
-import com.example.SwipeByte.ui.viewmodel.AuthViewModel
+import com.example.swipebyte.ui.navigation.Screen
+import com.example.swipebyte.ui.viewmodel.AuthViewModel
 
 
 @Composable
@@ -71,11 +72,14 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
 
         Button(
             onClick = {
-                authViewModel.login(email, password) // ✅ Calls the login function
-                navController.navigate(Screen.Home.route) {
-                    popUpTo(Screen.Login.route) {
-                        inclusive = true
-                    } // ✅ Remove Login from back stack
+                authViewModel.login(email, password) { success ->
+                    if (success) {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    } else {
+                        Log.e("LoginScreen", "Login failed! Show error message.")
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
