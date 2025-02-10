@@ -1,6 +1,8 @@
 package com.example.swipebyte.ui.pages
 
+import android.media.Image
 import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -32,15 +35,18 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.navigation.NavController
+import coil.compose.AsyncImagePainter.State.Empty.painter
+import com.example.swipebyte.R
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
 import kotlinx.coroutines.launch
-
 
 @Composable
 fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
@@ -60,9 +66,31 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = "Login", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Image(
+                painter = painterResource(id = R.drawable.swipebyte),
+                contentDescription = "SWIPE Image",
+                modifier = Modifier
+                    .size(175.dp) // Adjust image width
+                    .padding(bottom = 8.dp), // Add space between images
+                contentScale = ContentScale.Fit
+            )
+
 
             Spacer(modifier = Modifier.height(16.dp))
+
+
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.secondary)) {
+                        append("Hungry? ")
+                    }
+                    append("Swipe Now")
+                },
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = email,
@@ -88,6 +116,7 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
+                shape = RoundedCornerShape(15.dp),
                 onClick = {
                     authViewModel.login(email, password) { success ->
                         if (success) {
@@ -125,7 +154,7 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
                     pushStringAnnotation(tag = "signup", annotation = "signup")
                     withStyle(style = SpanStyle(
                         textDecoration = TextDecoration.Underline,
-                        color = MaterialTheme.colorScheme.secondary
+                        color = MaterialTheme.colorScheme.tertiary
                     )) {
                         append("Sign up")
                     }
