@@ -44,9 +44,9 @@ fun DealsOfTheDayView(navController: NavController) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val demoDeals = listOf(
-                Deal("Badiali Pizzeria", "Pizza - $", "4.5 ⭐ (900+)", "0.3 km away", "https://images.unsplash.com/photo-1601924575440-30dc45f7d24b"),
-                Deal("Bar Poet", "Bar, Pizza - $$", "4.6 ⭐ (1,000+)", "0.4 km away", "https://images.unsplash.com/photo-1559628233-93f092d3abfa"),
-                Deal("Sugo", "Italian - $$", "4.7 ⭐ (2,000+)", "0.6 km away", "https://images.unsplash.com/photo-1603079837747-7e0663f64d1e"),
+                Deal("Badiali Pizzeria", "Pizza - $", "4.5 ⭐ (900+)", "0.3 km away", "https://lh3.googleusercontent.com/gps-cs-s/APrbqlV8qusAlM3gkDD-tL2LUPh5_MDDwIHZQ2nVDIOtPU94UP1T3-w5xbtoeemv35z8aFDUmPfJT-uQg2qEm6VZ5H38ON0xD9EjFa3oJ9k9oh-nLm98HfMXsfIyc0PqfPGZWhCGmdk=s1360-w1360-h1020"),
+                Deal("Bar Poet", "Bar, Pizza - $$", "4.6 ⭐ (1,000+)", "0.4 km away", "https://s3-media0.fl.yelpcdn.com/bphoto/DIT5tWgz6nsTc5gFPqcI0Q/348s.jpg"),
+                Deal("Sugo", "Italian - $$", "4.7 ⭐ (2,000+)", "0.6 km away", "https://media.blogto.com/uploads/2017/07/23/20170719-sugo-01.jpg?cmd=resize&quality=70&w=1400&height=2500"),
                 Deal("Joe's Diner", "American - $", "4.3 ⭐ (500+)", "0.7 km away", "https://images.unsplash.com/photo-1551218808-94e220e084d2"),
                 Deal("Green Bowl", "Vegan - $$", "4.8 ⭐ (300+)", "0.9 km away", "https://images.unsplash.com/photo-1490645935967-10de6ba17061"),
                 Deal("Taco Town", "Mexican - $$", "4.5 ⭐ (700+)", "1.1 km away", "https://images.unsplash.com/photo-1599999901341-b3d8429a7512"),

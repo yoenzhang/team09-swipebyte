@@ -22,8 +22,8 @@ import androidx.compose.material3.Typography
     private val LightColorScheme = lightColorScheme(
         primary = Red,
         secondary = Orange,
-        tertiary = Yellow
-
+        tertiary = Yellow,
+        background = White
         /* Other default colors to override
         background = Color(0xFFFFFBFE),
         surface = Color(0xFFFFFBFE),

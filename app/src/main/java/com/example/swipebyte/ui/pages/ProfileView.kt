@@ -8,9 +8,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.swipebyte.ui.navigation.Screen
+import com.example.swipebyte.ui.viewmodel.AuthViewModel
 
 @Composable
-fun ProfileView(navController: NavController) {
+fun ProfileView(navController: NavController, authViewModel: AuthViewModel) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -22,6 +23,11 @@ fun ProfileView(navController: NavController) {
 
         Button(onClick = { navController.navigate(Screen.Home.route) }) {
             Text("Go to Home")
+        }
+        Button(onClick = {
+            authViewModel.logout()
+        }) {
+            Text("log out")
         }
     }
 }
