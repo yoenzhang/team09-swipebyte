@@ -1,25 +1,29 @@
 package com.example.swipebyte.ui.pages
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import coil.compose.rememberImagePainter
 import com.example.swipebyte.ui.db.DBModel
 import com.google.accompanist.pager.*
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 data class Restaurant(
     val name: String,
@@ -34,59 +38,96 @@ data class Restaurant(
 fun HomeView(navController: NavController) {
     val restaurantList = remember { mutableStateListOf<Restaurant>() }
 
-    // Fetch data once when the composable is first launched
     LaunchedEffect(Unit) {
         val fetchedRestaurants = DBModel.fetchRestaurants()
         restaurantList.addAll(fetchedRestaurants)
     }
 
     val pagerState = rememberPagerState()
+    val coroutineScope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxSize()) {
         VerticalPager(
-            state = pagerState, // ✅ Enables vertical swiping
+            state = pagerState,
             count = restaurantList.size,
             modifier = Modifier.fillMaxSize()
         ) { page ->
-            RestaurantCard(restaurantList[page])
+            RestaurantCard(
+                restaurant = restaurantList[page],
+                onSwiped = { direction ->
+                    coroutineScope.launch {
+                        println("Swiped $direction: hello world")
+                        val nextPage = (pagerState.currentPage + 1) % restaurantList.size
+                        pagerState.animateScrollToPage(nextPage)
+                    }
+                }
+            )
         }
     }
 }
 
 @Composable
-fun RestaurantCard(restaurant: Restaurant) {
+fun RestaurantCard(restaurant: Restaurant, onSwiped: (String) -> Unit) {
+    val offsetX = remember { Animatable(0f) }
+    val coroutineScope = rememberCoroutineScope()
+    val swipeThreshold = 300f
+
     Card(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(16.dp)
+            .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        coroutineScope.launch {
+                            val targetValue = when {
+                                offsetX.value > swipeThreshold -> {
+                                    onSwiped("Right")
+                                    1000f
+                                }
+                                offsetX.value < -swipeThreshold -> {
+                                    onSwiped("Left")
+                                    -1000f
+                                }
+                                else -> 0f
+                            }
+                            offsetX.animateTo(
+                                targetValue = targetValue,
+                                animationSpec = tween(durationMillis = 300)
+                            )
+                        }
+                    }
+                ) { change, dragAmount ->
+                    change.consume()
+                    coroutineScope.launch {
+                        offsetX.snapTo(offsetX.value + dragAmount)
+                    }
+                }
+            },
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Background Image (Full card)
             Image(
                 painter = rememberAsyncImagePainter(model = restaurant.imageUrl),
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .align(Alignment.Center),
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
 
-            // Red Overlay at the bottom (15% height)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
-                    .height((LocalConfiguration.current.screenHeightDp * 0.15f).dp) // ✅ 15% of screen height
+                    .height((LocalConfiguration.current.screenHeightDp * 0.15f).dp)
             )
 
-            // Text Content over the Red Overlay
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(Alignment.BottomStart) // Align to bottom
+                    .align(Alignment.BottomStart)
                     .padding(16.dp)
             ) {
                 Text(
