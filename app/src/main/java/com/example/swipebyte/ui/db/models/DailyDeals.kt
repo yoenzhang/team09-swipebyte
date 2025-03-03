@@ -1,4 +1,4 @@
-package com.example.swipebyte.ui.data.models
+package com.example.swipebyte.ui.db.models
 
 data class DailyDeal(
     val restaurantId: String = "",

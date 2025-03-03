@@ -18,8 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.swipebyte.data.repository.RestaurantRepository
-import com.example.swipebyte.ui.data.DBModel
-import com.example.swipebyte.ui.data.models.Restaurant
+import com.example.swipebyte.ui.db.models.Restaurant
 import com.google.accompanist.pager.*
 
 @OptIn(ExperimentalPagerApi::class)

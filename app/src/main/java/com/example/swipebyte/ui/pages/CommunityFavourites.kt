@@ -15,7 +15,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import androidx.navigation.NavController
-import com.example.swipebyte.ui.data.Restaurant
+import com.example.swipebyte.ui.db.Restaurant
 
 @Composable
 fun CommunityFavouritesView(navController: NavController) {

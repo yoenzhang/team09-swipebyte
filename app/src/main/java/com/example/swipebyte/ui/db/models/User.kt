@@ -1,4 +1,4 @@
-package com.example.swipebyte.ui.data.models
+package com.example.swipebyte.ui.db.models
 
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.auth.FirebaseAuth

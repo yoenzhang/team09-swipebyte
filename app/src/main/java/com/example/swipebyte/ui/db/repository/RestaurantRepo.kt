@@ -1,8 +1,8 @@
 package com.example.swipebyte.data.repository
 
 import android.util.Log
-import com.example.swipebyte.ui.data.models.Restaurant
-import com.example.swipebyte.ui.data.models.YelpResponse
+import com.example.swipebyte.ui.db.models.Restaurant
+import com.example.swipebyte.ui.db.models.YelpResponse
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.toObjects
 import kotlinx.coroutines.tasks.await

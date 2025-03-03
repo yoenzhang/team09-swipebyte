@@ -1,4 +1,4 @@
-package com.example.swipebyte.ui.data
+package com.example.swipebyte.ui.db
 
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await

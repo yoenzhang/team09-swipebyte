@@ -1,13 +1,6 @@
-package com.example.swipebyte.ui.data
+package com.example.swipebyte.ui.db
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.swipebyte.data.repository.RestaurantRepository
-import com.example.swipebyte.ui.data.models.Restaurant
-import kotlinx.coroutines.launch
-
+/*
 class RestaurantViewModel : ViewModel() {
     private val repository = RestaurantRepository()
     private val _restaurants = MutableLiveData<List<Restaurant>>()
@@ -20,3 +13,4 @@ class RestaurantViewModel : ViewModel() {
         }
     }
 }
+ */

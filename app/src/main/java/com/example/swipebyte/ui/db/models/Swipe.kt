@@ -1,13 +1,18 @@
-package com.example.swipebyte.ui.data.repository
+package com.example.swipebyte.ui.db.models
 
 import android.util.Log
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 
+data class UserSwipe(
+    val userId: String = "",
+    val restaurantId: String = "",
+    val action: Int = 0, // +1 for like, -1 for dislike
+    val timestamp: Long = System.currentTimeMillis() // query this table for user favourites
+)
 
-
-class SwipeRepository {
+class SwipeQueryable {
     private val db = FirebaseFirestore.getInstance()
     private val userSwipesCollection = db.collection("userSwipes")
 

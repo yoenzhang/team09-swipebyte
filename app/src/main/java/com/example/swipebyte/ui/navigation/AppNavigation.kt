@@ -16,7 +16,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.swipebyte.R
 import com.example.swipebyte.data.repository.RestaurantRepository
-import com.example.swipebyte.ui.db.models.SwipeQueryable
+// import com.example.swipebyte.ui.db.models.SwipeQueryable
 import com.example.swipebyte.ui.pages.CommunityFavouritesView
 import com.example.swipebyte.ui.pages.DealsOfTheDayView
 import com.example.swipebyte.ui.pages.HomeView

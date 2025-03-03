@@ -1,6 +1,5 @@
 package com.example.swipebyte.ui.db.models
 
-import com.example.swipebyte.ui.data.models.UserQueryable
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.FirebaseFirestore
@@ -15,7 +14,7 @@ data class Restaurant(
     val phoneNumber: String = "",
     val address: String = "",
     val website: String = "",
-    val priceRange: String = "",
+    val priceRange: String? = "",
     val location: GeoPoint = GeoPoint(0.0, 0.0),
     val imageUrls: List<String> = emptyList(),
     val id: String = "",
@@ -115,3 +114,4 @@ class RestaurantQueryable {
         }
     }
 }
+

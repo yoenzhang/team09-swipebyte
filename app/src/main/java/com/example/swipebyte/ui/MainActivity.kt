@@ -11,8 +11,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.example.swipebyte.ui.db.models.UserQueryable
-import com.example.swipebyte.ui.data.DBModel
 import com.example.swipebyte.ui.navigation.AppNavigation
 import com.example.swipebyte.ui.theme.SwipeByteTheme
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
@@ -78,7 +76,7 @@ class MainActivity : ComponentActivity() {
                     println("📍 Updated Location: ${location.latitude}, ${location.longitude}")
 
                     // Update Firestore with new location
-                    UserQueryable.updateUserLocation(location.latitude, location.longitude)
+                    //UserQueryable.updateUserLocation(location.latitude, location.longitude)
                 } else {
                     println("⚠️ Location is still null")
                 }
