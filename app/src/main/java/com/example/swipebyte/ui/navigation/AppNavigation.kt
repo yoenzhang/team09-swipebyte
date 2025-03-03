@@ -22,6 +22,7 @@ import androidx.navigation.*
 import androidx.navigation.compose.*
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.swipebyte.R
+import com.example.swipebyte.ui.db.repository.SwipeRepository
 import com.example.swipebyte.ui.pages.CommunityFavouritesView
 import com.example.swipebyte.ui.pages.DealsOfTheDayView
 import com.example.swipebyte.ui.pages.HomeView
@@ -47,7 +48,6 @@ fun AppNavigation(authViewModel: AuthViewModel) {
 
     // Observe login status from ViewModel
     val isLoggedIn by authViewModel.isLoggedIn.observeAsState(false)
-    Log.d("test", isLoggedIn.toString())
 
     SwipeByteTheme {
         Scaffold(
