@@ -1,5 +1,6 @@
 package com.example.swipebyte.ui.pages
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -16,34 +17,58 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import com.example.swipebyte.ui.db.models.Restaurant
-import com.example.swipebyte.ui.db.models.RestaurantQueryable
+import com.example.swipebyte.data.repository.RestaurantRepository
+import com.example.swipebyte.ui.data.DBModel
+import com.example.swipebyte.ui.data.models.Restaurant
 import com.google.accompanist.pager.*
-
 
 @OptIn(ExperimentalPagerApi::class)
 @Composable
 fun HomeView(navController: NavController) {
+    // Initialize RestaurantRepository
+    val restaurantRepo = RestaurantRepository()
+
+    // State for the list of restaurants
     val restaurantList = remember { mutableStateListOf<Restaurant>() }
+
+    // Loading state for when data is being fetched
+    var isLoading by remember { mutableStateOf(true) }
 
     // Fetch data once when the composable is first launched
     LaunchedEffect(Unit) {
-        val fetchedRestaurants = RestaurantQueryable.fetchNearbyRestaurants()
-        restaurantList.addAll(fetchedRestaurants)
+        try {
+            // Call fetchRestaurants() to get data from RestaurantRepository
+            val fetchedRestaurants = restaurantRepo.getRestaurants()
+            // Update the list of restaurants
+            restaurantList.clear()
+            restaurantList.addAll(fetchedRestaurants.toMutableList())
+        } catch (e: Exception) {
+            // Handle errors if fetching data fails
+            Log.e("HomeView", "Error fetching restaurants: ${e.message}")
+        } finally {
+            // Set loading state to false after fetching is complete
+            isLoading = false
+        }
     }
 
-    val pagerState = rememberPagerState()
+    // If the data is still loading, show a loading indicator
+    if (isLoading) {
+        //CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+    } else {
+        val pagerState = rememberPagerState()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        VerticalPager(
-            state = pagerState, // ✅ Enables vertical swiping
-            count = restaurantList.size,
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
-            RestaurantCard(restaurantList[page])
+        Column(modifier = Modifier.fillMaxSize()) {
+            VerticalPager(
+                state = pagerState, // ✅ Enables vertical swiping
+                count = restaurantList.size,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                RestaurantCard(restaurantList[page])
+            }
         }
     }
 }
+
 
 @Composable
 fun RestaurantCard(restaurant: Restaurant) {
@@ -88,17 +113,17 @@ fun RestaurantCard(restaurant: Restaurant) {
                     color = Color.White
                 )
                 Text(
-                    text = restaurant.cuisineType.joinToString(", "),
+                    text = restaurant.cuisineType.toString(),
                     fontSize = 18.sp,
                     color = Color.White
                 )
                 Text(
-                    text = restaurant.averageRating.toString(),
+                    text = restaurant.yelpRating.toString(),
                     fontSize = 16.sp,
                     color = Color.White
                 )
                 Text(
-                    text =  "km away",
+                    text = "1.8km away",
                     fontSize = 16.sp,
                     color = Color.White
                 )

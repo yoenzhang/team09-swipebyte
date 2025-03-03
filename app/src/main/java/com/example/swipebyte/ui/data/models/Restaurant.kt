@@ -17,10 +17,10 @@ data class Restaurant(
     val priceRange: String = "",
     val location: GeoPoint = GeoPoint(0.0, 0.0),
     val imageUrls: List<String> = emptyList(),
+    val id: String = "",
     val averageRating: Float = 0f,
-    val totalRatings: Int = 0,
-    val userRating: Float = 0f
-    // for reviews, we just query review table for restaurant ID
+    val userRating: Float = 0f,
+    val yelpRating: Float = 0f
 )
 
 class RestaurantQueryable {

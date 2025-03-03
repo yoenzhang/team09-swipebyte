@@ -1,4 +1,4 @@
-package com.example.swipebyte.ui.db.models
+package com.example.swipebyte.ui.data.models
 
 import android.util.Log
 import com.google.firebase.firestore.DocumentSnapshot
