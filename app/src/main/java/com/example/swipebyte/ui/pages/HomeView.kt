@@ -8,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -17,17 +16,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import coil.compose.rememberImagePainter
-import com.example.swipebyte.ui.db.DBModel
+import com.example.swipebyte.ui.db.models.Restaurant
+import com.example.swipebyte.ui.db.models.RestaurantQueryable
 import com.google.accompanist.pager.*
 
-data class Restaurant(
-    val name: String,
-    val cuisine: String,
-    val rating: String,
-    val distance: String,
-    val imageUrl: String
-)
 
 @OptIn(ExperimentalPagerApi::class)
 @Composable
@@ -36,7 +28,7 @@ fun HomeView(navController: NavController) {
 
     // Fetch data once when the composable is first launched
     LaunchedEffect(Unit) {
-        val fetchedRestaurants = DBModel.fetchRestaurants()
+        val fetchedRestaurants = RestaurantQueryable.fetchNearbyRestaurants()
         restaurantList.addAll(fetchedRestaurants)
     }
 
@@ -65,7 +57,7 @@ fun RestaurantCard(restaurant: Restaurant) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Background Image (Full card)
             Image(
-                painter = rememberAsyncImagePainter(model = restaurant.imageUrl),
+                painter = rememberAsyncImagePainter(model = restaurant.imageUrls[0]),
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
@@ -96,17 +88,17 @@ fun RestaurantCard(restaurant: Restaurant) {
                     color = Color.White
                 )
                 Text(
-                    text = restaurant.cuisine,
+                    text = restaurant.cuisineType.joinToString(", "),
                     fontSize = 18.sp,
                     color = Color.White
                 )
                 Text(
-                    text = restaurant.rating,
+                    text = restaurant.averageRating.toString(),
                     fontSize = 16.sp,
                     color = Color.White
                 )
                 Text(
-                    text = restaurant.distance,
+                    text =  "km away",
                     fontSize = 16.sp,
                     color = Color.White
                 )
