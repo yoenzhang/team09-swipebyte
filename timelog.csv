@@ -1,3 +1,13 @@
-Date,Name1,Name2,Name3,Name4,Name5,Task
-2025-01-06,0.5,0,0,0,0,setup GitHub repo
-2025-01-07,1,1,1,1,1,first team meeting
+Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Task
+2025-01-15,1,1,1,1,1,first team meeting
+2025-01-15,1,1,1,1,1,set up GitHub repo
+2025-01-29,1,1,1,1,1, work on p2 doc
+2025-01-31,2,2,2,2,2, finalize p2 doc
+2025-02-05,0.5,0.5,0.5,0.5,05,go over p3 requirements
+2025-02-10,2,0,4,0,4, create ui pages
+2025-02-11,2,4,0,4,0, set up database
+2025-02-19,0,0,3,0,3, add other ui components
+2024-02-20,2,2,2,2,2, go over p4 requirements
+2024-02-24,3,0,3,0,3, clean up ui and motion controls
+2024-02-27,0,4,0,1,0 finish db schema for p4
+2024-02-28,3,0,0,3,0, set up yelp api key
