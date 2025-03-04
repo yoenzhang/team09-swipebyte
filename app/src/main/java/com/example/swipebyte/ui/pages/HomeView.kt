@@ -71,8 +71,8 @@ fun EnhancedRestaurantCard(
     restaurant: Restaurant,
     onSwiped: (String) -> Unit,
     onDetailsClick: () -> Unit,
-    onUndoClick: () -> Unit,  // Added parameter for undo functionality
-    showUndoButton: Boolean   // Added parameter to control visibility
+    onUndoClick: () -> Unit,
+    showUndoButton: Boolean
 ) {
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
@@ -98,7 +98,7 @@ fun EnhancedRestaurantCard(
     // Generate image URLs list with the current restaurant's image as the first one
     val imageUrls = listOf(
         baseUrl,
-        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5",
+        restaurant.imageUrls[0],
         "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
         "https://images.unsplash.com/photo-1600891964599-f61ba0e24092",
         "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"
