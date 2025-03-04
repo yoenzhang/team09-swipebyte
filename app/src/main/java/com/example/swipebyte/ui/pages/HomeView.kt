@@ -10,16 +10,22 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,8 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -37,6 +45,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,220 +61,18 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.res.painterResource
+import com.example.swipebyte.R
 
-@Composable
-fun HomeView(navController: NavController) {
-    // Initialize RestaurantRepository
-    val restaurantRepo = RestaurantRepository()
 
-    // State for the list of restaurants
-    val restaurantList = remember { mutableStateListOf<Restaurant>() }
-
-    // Previous restaurants stack for undo functionality (limited to 2)
-    val previousRestaurants = remember { mutableStateListOf<Restaurant>() }
-
-    // Loading state for when data is being fetched
-    var isLoading by remember { mutableStateOf(true) }
-
-    // Current restaurant index
-    var currentIndex by remember { mutableStateOf(0) }
-
-    // State for detailed view
-    var showDetailScreen by remember { mutableStateOf(false) }
-
-    // State to track if card is being swiped
-    var isCardSwiping by remember { mutableStateOf(false) }
-
-    // Coroutine scope for animations
-    val coroutineScope = rememberCoroutineScope()
-
-    // Fetch data once when the composable is first launched
-    LaunchedEffect(Unit) {
-        try {
-            // Call fetchRestaurants() to get data from RestaurantRepository
-            val fetchedRestaurants = RestaurantQueryable.filterNearbyRestaurants(
-                restaurantRepo.getRestaurants())
-            // Update the list of restaurants
-            restaurantList.clear()
-            restaurantList.addAll(fetchedRestaurants.toMutableList())
-        } catch (e: Exception) {
-            // Handle errors if fetching data fails
-            Log.e("HomeView", "Error fetching restaurants: ${e.message}")
-        } finally {
-            // Set loading state to false after fetching is complete
-            isLoading = false
-        }
-    }
-
-    // Show loading indicator while data is being fetched
-    if (isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-    } else if (restaurantList.isEmpty()) {
-        // Show empty state when no restaurants are available
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No restaurants found nearby")
-        }
-    } else {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Main content - Current restaurant card
-            if (currentIndex < restaurantList.size) {
-                EnhancedRestaurantCard(
-                    restaurant = restaurantList[currentIndex],
-                    onSwiped = { direction ->
-                        // Mark card as swiping
-                        isCardSwiping = true
-
-                        // Add current restaurant to previous (maintain max 2)
-                        if (previousRestaurants.size >= 2) {
-                            previousRestaurants.removeAt(0) // Remove oldest
-                        }
-                        previousRestaurants.add(restaurantList[currentIndex])
-
-                        // Move to next restaurant with a slight delay to allow animation to complete
-                        coroutineScope.launch {
-                            delay(200) // Short delay for animation
-                            if (currentIndex < restaurantList.size - 1) {
-                                currentIndex++
-                            }
-                            // Reset swiping state
-                            isCardSwiping = false
-                        }
-                    },
-                    onCardClick = {
-                        showDetailScreen = true
-                    }
-                )
-            } else {
-                // No more restaurants to show
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "You've seen all restaurants!",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                }
-            }
-
-            // Undo button (only visible when there are previous restaurants and not during swipe)
-            if (previousRestaurants.isNotEmpty() && !isCardSwiping) {
-                Box(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .align(Alignment.TopStart)
-                        .zIndex(2f)
-                ) {
-                    Button(
-                        onClick = {
-                            if (previousRestaurants.isNotEmpty() && !isCardSwiping) {
-                                val lastRestaurant = previousRestaurants.last()
-                                previousRestaurants.removeLast()
-
-                                // If we're at the end of the list, we need special handling
-                                if (currentIndex >= restaurantList.size) {
-                                    restaurantList.add(lastRestaurant)
-                                    currentIndex = restaurantList.size - 1
-                                } else {
-                                    // Otherwise, just go back to the previous restaurant
-                                    currentIndex = (currentIndex - 1).coerceAtLeast(0)
-                                }
-                            }
-                        },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Undo",
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Undo")
-                    }
-                }
-            }
-
-            // Detailed view overlay
-            AnimatedVisibility(
-                visible = showDetailScreen && currentIndex < restaurantList.size && !isCardSwiping,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-                exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zIndex(if (showDetailScreen) 1f else 0f)
-            ) {
-                if (currentIndex < restaurantList.size) {
-                    RestaurantDetailScreen(
-                        restaurant = restaurantList[currentIndex],
-                        onDismiss = { showDetailScreen = false },
-                        onLike = {
-                            coroutineScope.launch {
-                                showDetailScreen = false
-                                // Mark card as swiping
-                                isCardSwiping = true
-
-                                delay(300) // Wait for animation to complete
-
-                                // Add to previous for undo functionality (maintain max 2)
-                                if (previousRestaurants.size >= 2) {
-                                    previousRestaurants.removeAt(0) // Remove oldest
-                                }
-                                previousRestaurants.add(restaurantList[currentIndex])
-
-                                // Move to next restaurant
-                                if (currentIndex < restaurantList.size - 1) {
-                                    currentIndex++
-                                }
-
-                                // Reset swiping state
-                                delay(100)
-                                isCardSwiping = false
-                            }
-                        },
-                        onDislike = {
-                            coroutineScope.launch {
-                                showDetailScreen = false
-                                // Mark card as swiping
-                                isCardSwiping = true
-
-                                delay(300) // Wait for animation to complete
-
-                                // Add to previous for undo functionality (maintain max 2)
-                                if (previousRestaurants.size >= 2) {
-                                    previousRestaurants.removeAt(0) // Remove oldest
-                                }
-                                previousRestaurants.add(restaurantList[currentIndex])
-
-                                // Move to next restaurant
-                                if (currentIndex < restaurantList.size - 1) {
-                                    currentIndex++
-                                }
-
-                                // Reset swiping state
-                                delay(100)
-                                isCardSwiping = false
-                            }
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EnhancedRestaurantCard(
     restaurant: Restaurant,
     onSwiped: (String) -> Unit,
-    onCardClick: () -> Unit
+    onDetailsClick: () -> Unit,
+    onUndoClick: () -> Unit,  // Added parameter for undo functionality
+    showUndoButton: Boolean   // Added parameter to control visibility
 ) {
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
@@ -279,6 +86,23 @@ fun EnhancedRestaurantCard(
 
     // Direction state
     var swipeDirection by remember { mutableStateOf("") }
+
+    // Current image index for gallery
+    val pagerState = rememberPagerState { 5 } // 5 images max
+
+    // Important: Move this out of remember block so it updates when restaurant changes
+    // Get current restaurant's image URL
+    val baseUrl = if (restaurant.imageUrls.isNotEmpty()) restaurant.imageUrls[0] else
+        "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
+
+    // Generate image URLs list with the current restaurant's image as the first one
+    val imageUrls = listOf(
+        baseUrl,
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5",
+        "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
+        "https://images.unsplash.com/photo-1600891964599-f61ba0e24092",
+        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"
+    )
 
     // List of random positive messages for right swipe
     val positiveMessages = listOf(
@@ -313,6 +137,8 @@ fun EnhancedRestaurantCard(
         offsetX.snapTo(0f)
         currentSwipeMessage = ""
         showMessageOverlay = false
+        // Also reset pager state when restaurant changes
+        pagerState.scrollToPage(0)
     }
 
     // Animation values
@@ -373,6 +199,7 @@ fun EnhancedRestaurantCard(
             }
         }
 
+        // Main card with swipe gesture applied directly to it
         Card(
             modifier = Modifier
                 .fillMaxSize()
@@ -382,7 +209,8 @@ fun EnhancedRestaurantCard(
                     scaleX = scale
                     scaleY = scale
                 }
-                .pointerInput(restaurant.id) { // Reset detector when restaurant changes
+                // Apply swipe gesture directly to the card
+                .pointerInput(restaurant.id) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
                             coroutineScope.launch {
@@ -409,7 +237,7 @@ fun EnhancedRestaurantCard(
                                     )
 
                                     // Pause to show message
-                                    delay(10)
+                                    delay(50)
 
                                     // Then complete the animation
                                     offsetX.animateTo(
@@ -447,89 +275,68 @@ fun EnhancedRestaurantCard(
                             }
                         }
                     }
-                }
-                .clickable(enabled = !showMessageOverlay) { onCardClick() },
+                },
             shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Card image - using first image from the list or fallback
-                val imageUrl = if (restaurant.imageUrls.isNotEmpty()) {
-                    restaurant.imageUrls[0]
-                } else {
-                    "https://images.unsplash.com/photo-1514933651103-005eec06c04b" // Fallback image
-                }
-
-                Image(
-                    painter = rememberAsyncImagePainter(model = imageUrl),
-                    contentDescription = null,
+                // Image gallery with left/right navigation
+                HorizontalPager(
+                    state = pagerState,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-
-                // Gradient overlay for text readability
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)),
-                                startY = 0f,
-                                endY = 300f
-                            )
-                        )
-                        .height((LocalConfiguration.current.screenHeightDp * 0.2f).dp)
-                )
-
-                // Content at the bottom
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomStart)
-                        .padding(20.dp)
-                ) {
-                    Text(
-                        text = restaurant.name,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = restaurant.cuisineType.joinToString(", "),
-                            fontSize = 16.sp,
-                            color = Color.White.copy(alpha = 0.9f)
+                    userScrollEnabled = false // Disable pager swiping to prevent conflicts
+                ) { page ->
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // Image
+                        Image(
+                            painter = rememberAsyncImagePainter(model = imageUrls[page]),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
 
-                        Text(
-                            text = " • ",
-                            fontSize = 16.sp,
-                            color = Color.White.copy(alpha = 0.7f)
+                        // Left half click area (Use clickable with indication = null to prevent ripple that interferes with swipe)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(LocalConfiguration.current.screenWidthDp.dp / 2)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    coroutineScope.launch {
+                                        // Go to previous image (with wrap-around)
+                                        val targetPage = if (pagerState.currentPage > 0)
+                                            pagerState.currentPage - 1
+                                        else
+                                            pagerState.pageCount - 1
+                                        pagerState.animateScrollToPage(targetPage)
+                                    }
+                                }
                         )
 
-                        Text(
-                            text = String.format("%.1f", restaurant.yelpRating) + " ⭐",
-                            fontSize = 16.sp,
-                            color = Color.White.copy(alpha = 0.9f)
+                        // Right half click area
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(LocalConfiguration.current.screenWidthDp.dp / 2)
+                                .align(Alignment.TopEnd)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    coroutineScope.launch {
+                                        // Go to next image (with wrap-around)
+                                        pagerState.animateScrollToPage(
+                                            (pagerState.currentPage + 1) % pagerState.pageCount
+                                        )
+                                    }
+                                }
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = String.format(Locale.US, "%.2f", restaurant.distance) + "km away",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.7f)
-                    )
                 }
 
-                // Left swipe indicator with random message
+                // Left swipe indicator
                 Box(
                     modifier = Modifier
                         .padding(24.dp)
@@ -553,7 +360,7 @@ fun EnhancedRestaurantCard(
                     }
                 }
 
-                // Right swipe indicator with random message
+                // Right swipe indicator
                 Box(
                     modifier = Modifier
                         .padding(24.dp)
@@ -577,29 +384,404 @@ fun EnhancedRestaurantCard(
                     }
                 }
 
-                // Tap to view indicator (only visible when not swiping much)
+                // Bottom info panel with details button
                 Box(
                     modifier = Modifier
-                        .align(Alignment.Center)
-                        .alpha(if (abs(offsetX.value) < 50f) 0.7f else 0f)
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+                    // Main info rectangle
+                    Card(
                         modifier = Modifier
-                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White.copy(alpha = 0.9f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color.White
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            // Restaurant info (with padding on both sides for buttons)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                                    .padding(start = 56.dp, end = 56.dp) // Space for both buttons
+                            ) {
+                                Text(
+                                    text = restaurant.name,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFFB300),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.width(4.dp))
+
+                                    Text(
+                                        text = String.format("%.1f", restaurant.yelpRating),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+
+                                    Text(
+                                        text = " • ",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.Gray
+                                    )
+
+                                    Text(
+                                        text = restaurant.cuisineType.joinToString(", "),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Text(
+                                    text = String.format(Locale.US, "%.2f", restaurant.distance) + "km away",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.Gray
+                                )
+                            }
+
+                            // Undo button on the left side (conditionally shown)
+                            if (showUndoButton) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.CenterStart)
+                                        .padding(start = 8.dp)
+                                ) {
+                                    IconButton(
+                                        onClick = onUndoClick,
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF4CAF50))
+                                            .size(44.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Undo",
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Details button on the right side
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .padding(end = 8.dp)
+                            ) {
+                                IconButton(
+                                    onClick = onDetailsClick,
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFE53935))
+                                        .size(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = "View Details",
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Image pagination indicator
+                Box(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .align(Alignment.TopCenter)
+                ) {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Black.copy(alpha = 0.6f)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Tap to view details",
-                            color = Color.White
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            for (i in 0 until pagerState.pageCount) {
+                                val isSelected = i == pagerState.currentPage
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = if (isSelected) 16.dp else 8.dp, height = 8.dp)
+                                        .background(
+                                            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun HomeView(navController: NavController) {
+    // Initialize RestaurantRepository
+    val restaurantRepo = RestaurantRepository()
+
+    // State for the list of restaurants
+    val restaurantList = remember { mutableStateListOf<Restaurant>() }
+
+    // Previous restaurants stack for undo functionality (limited to 2)
+    val previousRestaurants = remember { mutableStateListOf<Restaurant>() }
+
+    // Loading state for when data is being fetched
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Current restaurant index
+    var currentIndex by remember { mutableStateOf(0) }
+
+    // State for detailed view
+    var showDetailScreen by remember { mutableStateOf(false) }
+
+    // State to track if card is being swiped
+    var isCardSwiping by remember { mutableStateOf(false) }
+
+    // Coroutine scope for animations
+    val coroutineScope = rememberCoroutineScope()
+
+    // Function to handle undo action
+    val handleUndo = {
+        if (previousRestaurants.isNotEmpty() && !isCardSwiping) {
+            val lastRestaurant = previousRestaurants.last()
+            previousRestaurants.removeLast()
+
+            // If we're at the end of the list, we need special handling
+            if (currentIndex >= restaurantList.size) {
+                restaurantList.add(lastRestaurant)
+                currentIndex = restaurantList.size - 1
+            } else {
+                // Otherwise, just go back to the previous restaurant
+                currentIndex = (currentIndex - 1).coerceAtLeast(0)
+            }
+        }
+    }
+
+    // Fetch data once when the composable is first launched
+    LaunchedEffect(Unit) {
+        try {
+            // Call fetchRestaurants() to get data from RestaurantRepository
+            val fetchedRestaurants = RestaurantQueryable.filterNearbyRestaurants(
+                restaurantRepo.getRestaurants())
+            // Update the list of restaurants
+            restaurantList.clear()
+            restaurantList.addAll(fetchedRestaurants.toMutableList())
+        } catch (e: Exception) {
+            // Handle errors if fetching data fails
+            Log.e("HomeView", "Error fetching restaurants: ${e.message}")
+        } finally {
+            // Set loading state to false after fetching is complete
+            isLoading = false
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Improved top app bar with SwipeByte
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFE53935),  // Darker red
+                            Color(0xFFEF5350)   // Lighter red
                         )
+                    )
+                )
+                .padding(vertical = 12.dp, horizontal = 16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Logo Image instead of Icon
+                Image(
+                    painter = painterResource(id = R.drawable.bird_logo),
+                    contentDescription = "App Logo",
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // App name with style
+                Text(
+                    text = "SwipeByte",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.2f),
+                            offset = Offset(1f, 1f),
+                            blurRadius = 2f
+                        )
+                    )
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+//
+//                // Optional: Add a menu icon or profile button
+//                IconButton(onClick = { /* Menu action */ }) {
+//                    Icon(
+//                        imageVector = Icons.Default.Menu,
+//                        contentDescription = "Menu",
+//                        tint = Color.White
+//                    )
+//                }
+            }
+        }
+
+        // Main content
+        Box(modifier = Modifier.weight(1f)) {
+            // Show loading indicator while data is being fetched
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (restaurantList.isEmpty()) {
+                // Show empty state when no restaurants are available
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No restaurants found nearby")
+                }
+            } else {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Main content - Current restaurant card
+                    if (currentIndex < restaurantList.size) {
+                        EnhancedRestaurantCard(
+                            restaurant = restaurantList[currentIndex],
+                            onSwiped = { direction ->
+                                // Mark card as swiping
+                                isCardSwiping = true
+
+                                // Add current restaurant to previous (maintain max 2)
+                                if (previousRestaurants.size >= 2) {
+                                    previousRestaurants.removeAt(0) // Remove oldest
+                                }
+                                previousRestaurants.add(restaurantList[currentIndex])
+
+                                // Move to next restaurant with a slight delay to allow animation to complete
+                                coroutineScope.launch {
+                                    delay(50) // Short delay for animation
+                                    if (currentIndex < restaurantList.size - 1) {
+                                        currentIndex++
+                                    }
+                                    // Reset swiping state
+                                    isCardSwiping = false
+                                }
+                            },
+                            onDetailsClick = {
+                                showDetailScreen = true
+                            },
+                            onUndoClick = handleUndo,
+                            showUndoButton = previousRestaurants.isNotEmpty() && !isCardSwiping
+                        )
+                    } else {
+                        // No more restaurants to show
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "You've seen all restaurants!",
+                                style = MaterialTheme.typography.headlineMedium
+                            )
+                        }
+                    }
+
+                    // Detailed view overlay
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showDetailScreen && currentIndex < restaurantList.size && !isCardSwiping,
+                        enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                        exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .zIndex(if (showDetailScreen) 1f else 0f)
+                    ) {
+                        if (currentIndex < restaurantList.size) {
+                            RestaurantDetailScreen(
+                                restaurant = restaurantList[currentIndex],
+                                onDismiss = { showDetailScreen = false },
+                                onLike = {
+                                    coroutineScope.launch {
+                                        showDetailScreen = false
+                                        // Mark card as swiping
+                                        isCardSwiping = true
+
+                                        delay(10) // Wait for animation to complete
+
+                                        // Add to previous for undo functionality (maintain max 2)
+                                        if (previousRestaurants.size >= 2) {
+                                            previousRestaurants.removeAt(0) // Remove oldest
+                                        }
+                                        previousRestaurants.add(restaurantList[currentIndex])
+
+                                        // Move to next restaurant
+                                        if (currentIndex < restaurantList.size - 1) {
+                                            currentIndex++
+                                        }
+
+                                        // Reset swiping state
+                                        delay(10)
+                                        isCardSwiping = false
+                                    }
+                                },
+                                onDislike = {
+                                    coroutineScope.launch {
+                                        showDetailScreen = false
+                                        // Mark card as swiping
+                                        isCardSwiping = true
+
+                                        delay(10) // Wait for animation to complete
+
+                                        // Add to previous for undo functionality (maintain max 2)
+                                        if (previousRestaurants.size >= 2) {
+                                            previousRestaurants.removeAt(0) // Remove oldest
+                                        }
+                                        previousRestaurants.add(restaurantList[currentIndex])
+
+                                        // Move to next restaurant
+                                        if (currentIndex < restaurantList.size - 1) {
+                                            currentIndex++
+                                        }
+
+                                        // Reset swiping state
+                                        delay(100)
+                                        isCardSwiping = false
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
