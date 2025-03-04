@@ -1,13 +1,10 @@
 package com.example.swipebyte.ui.viewmodel
 
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.example.swipebyte.ui.db.models.UserQueryable
+import com.example.swipebyte.ui.data.models.UserQueryable
 import com.google.firebase.auth.FirebaseAuth
 
 class AuthViewModel : ViewModel() {
@@ -50,7 +47,6 @@ class AuthViewModel : ViewModel() {
                 if (task.isSuccessful) {
                     _isLoggedIn.value = true
                     Log.d("AuthViewModel", "Login successful: ${firebaseAuth.currentUser?.email}")
-                    UserQueryable.updateUserLocation(0.001,0.001)
                     UserQueryable.saveUserDataToFirestore()
                     onResult(true)
                 } else {
@@ -73,7 +69,6 @@ class AuthViewModel : ViewModel() {
                 if (task.isSuccessful) {
                     _isLoggedIn.value = true
                     Log.d("AuthViewModel", "Sign Up successful: ${firebaseAuth.currentUser?.email}")
-                    UserQueryable.updateUserLocation(0.001,0.001)
                     UserQueryable.saveUserDataToFirestore()
                     onResult(true)
                 } else {

@@ -18,9 +18,10 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.swipebyte.data.repository.RestaurantRepository
-import com.example.swipebyte.ui.data.DBModel
 import com.example.swipebyte.ui.data.models.Restaurant
+import com.example.swipebyte.ui.data.models.RestaurantQueryable
 import com.google.accompanist.pager.*
+import java.util.Locale
 
 @OptIn(ExperimentalPagerApi::class)
 @Composable
@@ -38,7 +39,8 @@ fun HomeView(navController: NavController) {
     LaunchedEffect(Unit) {
         try {
             // Call fetchRestaurants() to get data from RestaurantRepository
-            val fetchedRestaurants = restaurantRepo.getRestaurants()
+            val fetchedRestaurants = RestaurantQueryable.filterNearbyRestaurants(
+                                                                restaurantRepo.getRestaurants())
             // Update the list of restaurants
             restaurantList.clear()
             restaurantList.addAll(fetchedRestaurants.toMutableList())
@@ -123,7 +125,7 @@ fun RestaurantCard(restaurant: Restaurant) {
                     color = Color.White
                 )
                 Text(
-                    text = "1.8km away",
+                    text = String.format(Locale.US, "%.2f", restaurant.distance) + "km away",
                     fontSize = 16.sp,
                     color = Color.White
                 )

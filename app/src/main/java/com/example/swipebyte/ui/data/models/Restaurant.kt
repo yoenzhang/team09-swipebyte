@@ -1,6 +1,5 @@
-package com.example.swipebyte.ui.db.models
+package com.example.swipebyte.ui.data.models
 
-import com.example.swipebyte.ui.data.models.UserQueryable
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.FirebaseFirestore
@@ -21,7 +20,8 @@ data class Restaurant(
     val id: String = "",
     val averageRating: Float = 0f,
     val userRating: Float = 0f,
-    val yelpRating: Float = 0f
+    val yelpRating: Float = 0f,
+    var distance: Double = 0.0
 )
 
 class RestaurantQueryable {
@@ -29,33 +29,27 @@ class RestaurantQueryable {
         private val restaurantList : List<Restaurant> = emptyList()
 
         // Fetch nearby restaurants (using GeoPoint and distance calculation)
-        suspend fun fetchNearbyRestaurants(): List<Restaurant> {
+        suspend fun filterNearbyRestaurants(allRestaurants: List<Restaurant>): List<Restaurant> {
             val restaurants = mutableListOf<Restaurant>()
-            val db = FirebaseFirestore.getInstance()
-
-            val querySnapshot = db.collection("restaurants")
-                .get()
-                .await()
 
             val curLocation = UserQueryable.getUserLocation()
             val latitude = curLocation?.latitude ?: 0.0
             val longitude = curLocation?.longitude ?: 0.0
 
-            for (document in querySnapshot.documents) {
-                val location = document.getGeoPoint("location")
-                location?.let { it ->
+            for (restaurant in allRestaurants) {
+                val location = restaurant.location
+                location.let {
                     val restaurantLatitude = it.latitude
                     val restaurantLongitude = it.longitude
                     val distance = calculateDistance(latitude, longitude, restaurantLatitude, restaurantLongitude)
-
+                    restaurant.distance = distance
                     if (distance <= 5) { // 5 km radius for example, TODO: add this as param
-                        val restaurant = document.toObject(Restaurant::class.java)
-                        restaurant?.let { restaurants.add(it) }
+                        restaurants.add(restaurant)
                     }
                 }
             }
-
-            return restaurants
+            val sortedRestaurants = restaurants.sortedBy { it.distance }
+            return sortedRestaurants
         }
 
         fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
