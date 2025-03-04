@@ -71,6 +71,7 @@ class DBModel {
                     val rating = document.getString("rating") ?: "Unknown"
                     val distance = document.getString("distance") ?: "Unknown"
                     val imageUrl = document.getString("imageUrl") ?: "Unknown"
+                    val url = document.get("url")
 
                     restaurantList.add(Restaurant(name, cuisine, rating, distance, imageUrl))
                 }

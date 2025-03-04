@@ -11,9 +11,8 @@ import kotlin.math.sqrt
 data class Restaurant(
     val name: String = "",
     val cuisineType: List<String> = emptyList(),
-    val phoneNumber: String = "",
+    val phone: String = "",
     val address: String = "",
-    val website: String = "",
     val priceRange: String? = "",
     val location: GeoPoint = GeoPoint(0.0, 0.0),
     val imageUrls: List<String> = emptyList(),
@@ -21,7 +20,9 @@ data class Restaurant(
     val averageRating: Float = 0f,
     val userRating: Float = 0f,
     val yelpRating: Float = 0f,
-    var distance: Double = 0.0
+    var distance: Double = 0.0,
+    val url: String = "",
+
 )
 
 class RestaurantQueryable {
