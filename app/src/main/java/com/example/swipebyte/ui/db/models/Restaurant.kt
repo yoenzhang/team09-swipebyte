@@ -14,7 +14,7 @@ data class Restaurant(
     val phoneNumber: String = "",
     val address: String = "",
     val website: String = "",
-    val priceRange: String = "",
+    val priceRange: String? = "",
     val location: GeoPoint = GeoPoint(0.0, 0.0),
     val imageUrls: List<String> = emptyList(),
     val id: String = "",
@@ -109,3 +109,4 @@ class RestaurantQueryable {
         }
     }
 }
+
