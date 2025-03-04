@@ -22,6 +22,7 @@ data class Restaurant(
     val yelpRating: Float = 0f,
     var distance: Double = 0.0,
     val url: String = "",
+    val hours: List<YelpHours>? = emptyList()
 
 )
 

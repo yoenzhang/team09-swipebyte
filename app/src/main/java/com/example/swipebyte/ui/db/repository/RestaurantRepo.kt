@@ -4,14 +4,17 @@ import android.util.Log
 import com.example.swipebyte.ui.data.models.YelpResponse
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.data.models.YelpBusiness
+import com.example.swipebyte.ui.data.models.YelpBusinessDetailsResponse
 import com.example.swipebyte.ui.data.models.YelpCategory
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 // --- Yelp API Service ---
@@ -22,6 +25,12 @@ interface YelpAPI {
         @Query("limit") limit: Int = 50,
         @Header("Authorization") authHeader: String
     ): YelpResponse
+
+    @GET("businesses/{id}")
+    suspend fun getBusinessDetails(
+        @Path("id") id: String,
+        @Header("Authorization") authHeader: String
+    ): YelpBusinessDetailsResponse
 }
 
 // --- Retrofit Instance ---
@@ -42,8 +51,15 @@ class RestaurantRepository {
             // Always fetch from Yelp to update the database
             val yelpRestaurants = fetchFromYelp()
 
+            // The first api call does not get ALL details.
+            // Needed for hours/additional photos.
+            // Fetch details for each restaurant
+            val detailRestaurants = yelpRestaurants.map { restaurant ->
+                fetchBusinessDetails(restaurant)
+            }
+
             // Store in Firebase (this happens in the background)
-            storeInFirebase(yelpRestaurants)
+            storeInFirebase(detailRestaurants)
 
             // Return the Yelp data directly while Firebase updates in the background
             return yelpRestaurants
@@ -85,6 +101,20 @@ class RestaurantRepository {
         }
     }
 
+    private suspend fun fetchBusinessDetails(restaurant: Restaurant): Restaurant {
+        try {
+            val response = yelpAPI.getBusinessDetails(restaurant.id, authHeader = "Bearer $yelpApiKey")
+            Log.d("RestaurantRepo", "Successfully fetched details for ${restaurant.name}")
+            return restaurant.copy(
+                hours = response.hours,
+                imageUrls = response.photos
+            )
+        } catch (e: Exception) {
+            Log.e("RestaurantRepo", "Error fetching details for ${restaurant.name}: ${e.message}")
+            return restaurant
+        }
+    }
+
     private fun formatAddress(business: YelpBusiness): String {
         val location = business.location
         val addressParts = mutableListOf<String>()
@@ -111,7 +141,7 @@ class RestaurantRepository {
 
             restaurants.forEach { restaurant ->
                 val docRef = restaurantCollection.document(restaurant.id)
-                batch.set(docRef, restaurant)
+                batch.set(docRef, restaurant, SetOptions.merge())
             }
 
             batch.commit().await()
