@@ -24,6 +24,7 @@ data class Restaurant(
     val url: String = "",
     val hours: List<YelpHours>? = emptyList()
 
+
 )
 
 class RestaurantQueryable {

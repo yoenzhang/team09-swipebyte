@@ -62,7 +62,7 @@ class RestaurantRepository {
             storeInFirebase(detailRestaurants)
 
             // Return the Yelp data directly while Firebase updates in the background
-            return yelpRestaurants
+            return detailRestaurants
         } catch (e: Exception) {
             Log.e("RestaurantRepo", "Error fetching from Yelp: ${e.message}")
 

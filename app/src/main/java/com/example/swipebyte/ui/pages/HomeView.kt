@@ -63,6 +63,7 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import com.example.swipebyte.R
+import com.example.swipebyte.ui.data.models.YelpHours
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -95,13 +96,25 @@ fun EnhancedRestaurantCard(
     val baseUrl = if (restaurant.imageUrls.isNotEmpty()) restaurant.imageUrls[0] else
         "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
 
+    val secondImage = if (restaurant.imageUrls.size > 1) restaurant.imageUrls[1] else
+        "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
+
+    val thirdImage = if (restaurant.imageUrls.size > 3) restaurant.imageUrls[2] else
+        "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
+
+    val fourthImage = if (restaurant.imageUrls.size > 4) restaurant.imageUrls[3] else
+        "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
+
+    val fifthImage = if (restaurant.imageUrls.size > 5) restaurant.imageUrls[4] else
+        "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
+
     // Generate image URLs list with the current restaurant's image as the first one
     val imageUrls = listOf(
         baseUrl,
-        restaurant.imageUrls[0],
-        "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
-        "https://images.unsplash.com/photo-1600891964599-f61ba0e24092",
-        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"
+        secondImage,
+        thirdImage,
+        fourthImage,
+        fifthImage
     )
 
     // List of random positive messages for right swipe
@@ -940,11 +953,7 @@ fun RestaurantDetailScreen(
                     isClickable = true
                 )
 
-                DetailRow(
-                    icon = Icons.Default.Info,
-                    title = "Hours",
-                    value = "11:00 AM - 10:00 PM"
-                )
+                RestaurantHoursSection(restaurant.hours)
 
                 DetailRow(
                     icon = Icons.Default.Phone,
@@ -1081,5 +1090,122 @@ fun DetailRow(
                 )
             }
         }
+    }
+}
+
+
+@Composable
+fun RestaurantHoursSection(
+    hours: List<YelpHours>?
+) {
+    // Return early if no hours data is available
+    if (hours.isNullOrEmpty() || hours.first().open.isNullOrEmpty()) {
+        DetailRow(
+            icon = Icons.Default.Info,
+            title = "Hours",
+            value = "Hours information not available"
+        )
+        return
+    }
+
+    val daysOfWeek = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+    val regularHours = hours.find { it.hours_type == "REGULAR" }
+    val isOpenNow = regularHours?.is_open_now ?: false
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        // Hours header with open/closed indicator
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Text(
+                text = "Hours",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Open/Closed status chip
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isOpenNow) Color(0xFFACE7B3) else Color(0xFFFFABAB)
+                ),
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Text(
+                    text = if (isOpenNow) "Open now" else "Closed now",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isOpenNow) Color(0xFF0C6216) else Color(0xFF9A0007),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        // Hours by day
+        regularHours?.open?.sortedBy { it.day }?.forEach { openHours ->
+            val day = openHours.day
+            if (day != null && day >= 0 && day < 7) {
+                val dayName = daysOfWeek[day]
+                val startTime = formatTime(openHours.start)
+                val endTime = formatTime(openHours.end)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 32.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = dayName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Text(
+                        text = "$startTime - $endTime",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Helper function to format time from "1000" to "10:00 AM"
+private fun formatTime(time: String?): String {
+    if (time.isNullOrEmpty()) return "Closed"
+
+    try {
+        val hour = time.take(2).toInt()
+        val minute = time.takeLast(2)
+
+        val hourIn12 = when {
+            hour == 0 -> 12
+            hour > 12 -> hour - 12
+            else -> hour
+        }
+
+        val amPm = if (hour >= 12) "PM" else "AM"
+
+        return "$hourIn12:$minute $amPm"
+    } catch (e: Exception) {
+        return time
     }
 }
