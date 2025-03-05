@@ -41,18 +41,18 @@ data class YelpCategory(
 data class YelpBusinessDetailsResponse(
     val id: String,
     val photos: List<String>,
-    val hours: List<YelpHours>?
+    val hours: List<YelpHours>? = emptyList()
 )
 
 data class YelpHours(
-    val open: List<YelpOpen>?,
-    val hours_type: String?,
-    val is_open_now: Boolean?
+    val open: List<YelpOpen>? = emptyList(),
+    val hours_type: String? = "",
+    val is_open_now: Boolean? = false
 )
 
 data class YelpOpen(
-    val is_overnight: Boolean?,
-    val start: String?,
-    val end: String?,
-    val day: Int?
+    val is_overnight: Boolean? = false,
+    val start: String? = "",
+    val end: String? = "",
+    val day: Int? = 0
 )
