@@ -49,26 +49,37 @@ class RestaurantRepository {
     private val restaurantCollection = db.collection("restaurants")
     private val yelpApiKey = "pmie5_FVr0xgJsJyZWnmVRKF2WoTPQFH7iOaO7CUTMoQeqDlX54gvf0ql4ZbS89usMdSrExV9nbsmIXiYN7_h-RNWguknSTJ_KlwGsfaDEwnpOrssaBEwXqs_-XFZ3Yx"
 
-    suspend fun getRestaurants(): List<Restaurant> {
+    // Modified: Added forceRefresh parameter to control refresh behavior.
+    suspend fun getRestaurants(forceRefresh: Boolean = false): List<Restaurant> {
         return withContext(Dispatchers.IO) {
+            if (!forceRefresh) {
+                // First, try to fetch cached restaurants from Firebase.
+                try {
+                    val snapshot = restaurantCollection.limit(50).get().await()
+                    val firebaseRestaurants = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(Restaurant::class.java)
+                    }
+                    if (firebaseRestaurants.isNotEmpty()) {
+                        Log.d("RestaurantRepo", "Loaded ${firebaseRestaurants.size} restaurants from Firebase cache")
+                        return@withContext firebaseRestaurants
+                    }
+                } catch (e: Exception) {
+                    Log.e("RestaurantRepo", "Error fetching from Firebase: ${e.message}")
+                }
+            }
+            // Either force refresh or no data available in Firebase – fetch from Yelp.
             try {
-                // Fetch basic restaurant data from Yelp
                 val yelpRestaurants = fetchFromYelp()
-
-                // Concurrently fetch additional details for each restaurant
                 val detailRestaurants = yelpRestaurants.map { restaurant ->
                     async {
                         fetchBusinessDetailsOptimized(restaurant)
                     }
                 }.awaitAll()
-
-                // Store in Firebase asynchronously
+                // Update Firebase asynchronously
                 storeInFirebase(detailRestaurants)
-
                 detailRestaurants
             } catch (e: Exception) {
                 Log.e("RestaurantRepo", "Error fetching from Yelp: ${e.message}")
-
                 // Fallback to Firebase if Yelp fails
                 try {
                     val snapshot = restaurantCollection.limit(50).get().await()
@@ -76,7 +87,7 @@ class RestaurantRepository {
                         doc.toObject(Restaurant::class.java)
                     }
                 } catch (fallbackE: Exception) {
-                    Log.e("RestaurantRepo", "Error fetching from Firebase: ${fallbackE.message}")
+                    Log.e("RestaurantRepo", "Error fetching from Firebase fallback: ${fallbackE.message}")
                     emptyList()
                 }
             }
