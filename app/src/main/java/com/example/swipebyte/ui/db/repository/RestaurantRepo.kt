@@ -9,6 +9,10 @@ import com.example.swipebyte.ui.data.models.YelpCategory
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -33,7 +37,6 @@ interface YelpAPI {
     ): YelpBusinessDetailsResponse
 }
 
-// --- Retrofit Instance ---
 val retrofit = Retrofit.Builder()
     .baseUrl("https://api.yelp.com/v3/")
     .addConverterFactory(GsonConverterFactory.create())
@@ -47,34 +50,35 @@ class RestaurantRepository {
     private val yelpApiKey = "pmie5_FVr0xgJsJyZWnmVRKF2WoTPQFH7iOaO7CUTMoQeqDlX54gvf0ql4ZbS89usMdSrExV9nbsmIXiYN7_h-RNWguknSTJ_KlwGsfaDEwnpOrssaBEwXqs_-XFZ3Yx"
 
     suspend fun getRestaurants(): List<Restaurant> {
-        try {
-            // Always fetch from Yelp to update the database
-            val yelpRestaurants = fetchFromYelp()
-
-            // The first api call does not get ALL details.
-            // Needed for hours/additional photos.
-            // Fetch details for each restaurant
-            val detailRestaurants = yelpRestaurants.map { restaurant ->
-                fetchBusinessDetails(restaurant)
-            }
-
-            // Store in Firebase (this happens in the background)
-            storeInFirebase(detailRestaurants)
-
-            // Return the Yelp data directly while Firebase updates in the background
-            return detailRestaurants
-        } catch (e: Exception) {
-            Log.e("RestaurantRepo", "Error fetching from Yelp: ${e.message}")
-
-            // Fallback to Firebase if Yelp fails
+        return withContext(Dispatchers.IO) {
             try {
-                val snapshot = restaurantCollection.limit(50).get().await()
-                return snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Restaurant::class.java)
-                }
+                // Fetch basic restaurant data from Yelp
+                val yelpRestaurants = fetchFromYelp()
+
+                // Concurrently fetch additional details for each restaurant
+                val detailRestaurants = yelpRestaurants.map { restaurant ->
+                    async {
+                        fetchBusinessDetailsOptimized(restaurant)
+                    }
+                }.awaitAll()
+
+                // Store in Firebase asynchronously
+                storeInFirebase(detailRestaurants)
+
+                detailRestaurants
             } catch (e: Exception) {
-                Log.e("RestaurantRepo", "Error fetching from Firebase: ${e.message}")
-                return emptyList()
+                Log.e("RestaurantRepo", "Error fetching from Yelp: ${e.message}")
+
+                // Fallback to Firebase if Yelp fails
+                try {
+                    val snapshot = restaurantCollection.limit(50).get().await()
+                    snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(Restaurant::class.java)
+                    }
+                } catch (fallbackE: Exception) {
+                    Log.e("RestaurantRepo", "Error fetching from Firebase: ${fallbackE.message}")
+                    emptyList()
+                }
             }
         }
     }
@@ -93,25 +97,24 @@ class RestaurantRepository {
                 location = GeoPoint(business.coordinates.latitude, business.coordinates.longitude),
                 url = business.url ?: "",
                 phone = business.phone ?: "",
-                address = formatAddress(business),
-                //location2 = business.location.map {it.address1}
-                //address = formatAddress(business),
-                //distance = business.distance / 1000 // Convert from meters to kilometers
+                address = formatAddress(business)
             )
         }
     }
 
-    private suspend fun fetchBusinessDetails(restaurant: Restaurant): Restaurant {
-        try {
+    private suspend fun fetchBusinessDetailsOptimized(restaurant: Restaurant): Restaurant {
+        return try {
             val response = yelpAPI.getBusinessDetails(restaurant.id, authHeader = "Bearer $yelpApiKey")
             Log.d("RestaurantRepo", "Successfully fetched details for ${restaurant.name}")
-            return restaurant.copy(
-                hours = response.hours,
-                imageUrls = response.photos
+
+            // Only update if new details are available
+            restaurant.copy(
+                hours = response.hours ?: restaurant.hours,
+                imageUrls = response.photos.ifEmpty { restaurant.imageUrls }
             )
         } catch (e: Exception) {
-            Log.e("RestaurantRepo", "Error fetching details for ${restaurant.name}: ${e.message}")
-            return restaurant
+            Log.w("RestaurantRepo", "Could not fetch additional details for ${restaurant.name}")
+            restaurant
         }
     }
 
@@ -119,12 +122,12 @@ class RestaurantRepository {
         val location = business.location
         val addressParts = mutableListOf<String>()
 
-        // Add address1 if available
-        location.address1?.let { if (it.isNotEmpty()) addressParts.add(it) }
+        location?.let {
+            it.address1?.takeIf { address -> address.isNotEmpty() }?.let { address -> addressParts.add(address) }
 
-        // Add city, state, zip if available
-        if (location.city != null && location.state != null && location.zip_code != null) {
-            addressParts.add("${location.city}, ${location.state} ${location.zip_code}")
+            if (it.city != null && it.state != null && it.zip_code != null) {
+                addressParts.add("${it.city}, ${it.state} ${it.zip_code}")
+            }
         }
 
         return if (addressParts.isNotEmpty()) {
@@ -135,40 +138,24 @@ class RestaurantRepository {
     }
 
     private suspend fun storeInFirebase(restaurants: List<Restaurant>) {
-        try {
-            // Use a batch to update multiple documents efficiently
-            val batch = db.batch()
+        withContext(Dispatchers.IO) {
+            try {
+                val batch = db.batch()
 
-            restaurants.forEach { restaurant ->
-                val docRef = restaurantCollection.document(restaurant.id)
-                batch.set(docRef, restaurant, SetOptions.merge())
+                restaurants.forEach { restaurant ->
+                    val docRef = restaurantCollection.document(restaurant.id)
+                    batch.set(docRef, restaurant, SetOptions.merge())
+                }
+
+                batch.commit().await()
+                Log.d("RestaurantRepo", "Successfully updated ${restaurants.size} restaurants in Firebase")
+            } catch (e: Exception) {
+                Log.e("RestaurantRepo", "Error storing in Firebase: ${e.message}")
             }
-
-            batch.commit().await()
-            Log.d("RestaurantRepo", "Successfully updated ${restaurants.size} restaurants in Firebase")
-        } catch (e: Exception) {
-            Log.e("RestaurantRepo", "Error storing in Firebase: ${e.message}")
         }
     }
-
-//    private fun formatAddress(business: YelpBusiness): String {
-//        val location = business.location
-//        return if (location != null) {
-//            val addressParts = mutableListOf<String>()
-//            location.address1?.let { if (it.isNotEmpty()) addressParts.add(it) }
-//
-//            if (location.city != null && location.state != null && location.zip_code != null) {
-//                addressParts.add("${location.city}, ${location.state} ${location.zip_code}")
-//            }
-//
-//            addressParts.joinToString(", ")
-//        } else {
-//            "Address not available"
-//        }
-//    }
 }
 
-// Updated model classes to match Yelp API response format
 data class YelpResponse(
     val businesses: List<YelpBusiness>
 )
