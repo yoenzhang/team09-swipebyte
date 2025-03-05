@@ -8,6 +8,7 @@ import com.example.swipebyte.ui.data.models.YelpBusinessDetailsResponse
 import com.example.swipebyte.ui.data.models.YelpCategory
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
@@ -51,7 +52,10 @@ val yelpAPI = retrofit.create(YelpAPI::class.java)
 class RestaurantRepository {
     private val db = FirebaseFirestore.getInstance().apply {
         // Enable offline persistence for faster local access
-        firestoreSettings = firestoreSettings.toBuilder().setPersistenceEnabled(true).build()
+        val settings = FirebaseFirestoreSettings.Builder()
+            .setPersistenceEnabled(true)
+            .build()
+        firestoreSettings = settings
     }
     private val restaurantCollection = db.collection("restaurants")
     private val yelpApiKey = "pmie5_FVr0xgJsJyZWnmVRKF2WoTPQFH7iOaO7CUTMoQeqDlX54gvf0ql4ZbS89usMdSrExV9nbsmIXiYN7_h-RNWguknSTJ_KlwGsfaDEwnpOrssaBEwXqs_-XFZ3Yx"
