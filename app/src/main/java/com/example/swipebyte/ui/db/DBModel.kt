@@ -1,8 +1,17 @@
-package com.example.swipebyte.ui.db
+package com.example.swipebyte.ui.data
 
-import com.example.swipebyte.ui.pages.Restaurant
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+
+
+data class Restaurant(
+    val name: String,
+    val cuisine: String,
+    val rating: String,
+    val distance: String,
+    val imageUrl: String
+)
+
 
 class DBModel {
     companion object {
@@ -62,6 +71,7 @@ class DBModel {
                     val rating = document.getString("rating") ?: "Unknown"
                     val distance = document.getString("distance") ?: "Unknown"
                     val imageUrl = document.getString("imageUrl") ?: "Unknown"
+                    val url = document.get("url")
 
                     restaurantList.add(Restaurant(name, cuisine, rating, distance, imageUrl))
                 }

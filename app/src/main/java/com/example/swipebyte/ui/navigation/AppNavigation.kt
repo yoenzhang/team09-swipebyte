@@ -1,21 +1,14 @@
 package com.example.swipebyte.ui.navigation  // ✅ Use lowercase for "swipebyte"
 
-import android.util.Log
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.*
@@ -47,7 +40,6 @@ fun AppNavigation(authViewModel: AuthViewModel) {
 
     // Observe login status from ViewModel
     val isLoggedIn by authViewModel.isLoggedIn.observeAsState(false)
-    Log.d("test", isLoggedIn.toString())
 
     SwipeByteTheme {
         Scaffold(
