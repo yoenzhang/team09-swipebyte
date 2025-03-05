@@ -15,6 +15,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -72,12 +73,14 @@ fun EnhancedRestaurantCard(
     restaurant: Restaurant,
     onSwiped: (String) -> Unit,
     onDetailsClick: () -> Unit,
-    onUndoClick: () -> Unit,
-    showUndoButton: Boolean
+    onSwipeUp: () -> Unit,
+    onSwipeDown: () -> Unit
 ) {
     val offsetX = remember { Animatable(0f) }
+    val offsetY = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
-    val swipeThreshold = 300f
+    val horizontalSwipeThreshold = 300f
+    val verticalSwipeThreshold = 300f
 
     // Random message state
     var currentSwipeMessage by remember { mutableStateOf("") }
@@ -148,6 +151,7 @@ fun EnhancedRestaurantCard(
     // Reset animation state when the restaurant changes
     LaunchedEffect(restaurant.id) {
         offsetX.snapTo(0f)
+        offsetY.snapTo(0f)
         currentSwipeMessage = ""
         showMessageOverlay = false
         // Also reset pager state when restaurant changes
@@ -155,7 +159,7 @@ fun EnhancedRestaurantCard(
     }
 
     // Animation values
-    val rotation by animateFloatAsState(
+    val rotationX by animateFloatAsState(
         targetValue = (offsetX.value / 50).coerceIn(-10f, 10f),
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -164,7 +168,7 @@ fun EnhancedRestaurantCard(
     )
 
     val scale by animateFloatAsState(
-        targetValue = 0.9f + (1 - abs(offsetX.value) / 1500f).coerceIn(0f, 0.1f),
+        targetValue = 0.9f + (1 - (abs(offsetX.value) + abs(offsetY.value)) / 1500f).coerceIn(0f, 0.1f),
         animationSpec = tween(durationMillis = 100)
     )
 
@@ -172,6 +176,8 @@ fun EnhancedRestaurantCard(
         targetValue = when {
             offsetX.value > 100 -> Color(0x1500FF00) // Light green for right swipe
             offsetX.value < -100 -> Color(0x15FF0000) // Light red for left swipe
+            offsetY.value < -100 -> Color(0x150000FF) // Light blue for up swipe
+            offsetY.value > 100 -> Color(0x15FF00FF) // Light purple for down swipe
             else -> Color.Transparent
         },
         animationSpec = tween(durationMillis = 100)
@@ -189,10 +195,13 @@ fun EnhancedRestaurantCard(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        color = if (swipeDirection == "Right")
-                            Color(0xFF4CAF50).copy(alpha = 0.5f) // Semi-transparent green
-                        else
-                            Color(0xFFF44336).copy(alpha = 0.5f) // Semi-transparent red
+                        color = when (swipeDirection) {
+                            "Right" -> Color(0xFF4CAF50).copy(alpha = 0.5f) // Semi-transparent green
+                            "Left" -> Color(0xFFF44336).copy(alpha = 0.5f) // Semi-transparent red
+                            "Up" -> Color(0xFF2196F3).copy(alpha = 0.5f) // Semi-transparent blue
+                            "Down" -> Color(0xFF9C27B0).copy(alpha = 0.5f) // Semi-transparent purple
+                            else -> Color.Transparent
+                        }
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -212,22 +221,35 @@ fun EnhancedRestaurantCard(
             }
         }
 
-        // Main card with swipe gesture applied directly to it
+        // Main card with swipe gestures
         Card(
             modifier = Modifier
                 .fillMaxSize()
-                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .offset {
+                    IntOffset(
+                        offsetX.value.roundToInt(),
+                        offsetY.value.roundToInt()
+                    )
+                }
                 .graphicsLayer {
-                    rotationZ = rotation
+                    rotationZ = rotationX
                     scaleX = scale
                     scaleY = scale
                 }
-                // Apply swipe gesture directly to the card
+                // Combined horizontal and vertical gesture detection
                 .pointerInput(restaurant.id) {
-                    detectHorizontalDragGestures(
+                    var initialOffsetX = 0f
+                    var initialOffsetY = 0f
+
+                    detectDragGestures(
+                        onDragStart = {
+                            initialOffsetX = offsetX.value
+                            initialOffsetY = offsetY.value
+                        },
                         onDragEnd = {
                             coroutineScope.launch {
-                                if (abs(offsetX.value) > swipeThreshold) {
+                                // Check if the horizontal swipe threshold is met
+                                if (abs(offsetX.value) > horizontalSwipeThreshold && abs(offsetX.value) > abs(offsetY.value)) {
                                     val direction = if (offsetX.value > 0) "Right" else "Left"
                                     swipeDirection = direction
 
@@ -250,7 +272,7 @@ fun EnhancedRestaurantCard(
                                     )
 
                                     // Pause to show message
-                                    delay(50)
+                                    delay(5)
 
                                     // Then complete the animation
                                     offsetX.animateTo(
@@ -259,9 +281,55 @@ fun EnhancedRestaurantCard(
                                     )
 
                                     onSwiped(direction)
+                                }
+                                // Check if the vertical swipe threshold is met
+                                else if (abs(offsetY.value) > verticalSwipeThreshold && abs(offsetY.value) > abs(offsetX.value)) {
+                                    val direction = if (offsetY.value < 0) "Up" else "Down"
+                                    swipeDirection = direction
+
+                                    // Set a simple message for vertical swipes
+                                    currentSwipeMessage = if (direction == "Up") {
+                                        "Next restaurant!"
+                                    } else {
+                                        "Previous restaurant!"
+                                    }
+
+                                    // Show the message overlay
+                                    showMessageOverlay = true
+
+                                    val targetValue = if (offsetY.value < 0) -1500f else 1500f
+
+                                    // First animate to show message
+                                    offsetY.animateTo(
+                                        targetValue = if (offsetY.value < 0) -500f else 500f,
+                                        animationSpec = tween(durationMillis = 100)
+                                    )
+
+                                    // Pause to show message
+                                    delay(5)
+
+                                    // Then complete the animation
+                                    offsetY.animateTo(
+                                        targetValue = targetValue,
+                                        animationSpec = tween(durationMillis = 200)
+                                    )
+
+                                    // Call the appropriate vertical swipe function
+                                    if (direction == "Up") {
+                                        onSwipeUp()
+                                    } else {
+                                        onSwipeDown()
+                                    }
                                 } else {
-                                    // Snap back to center
+                                    // Snap back to center if no threshold is met
                                     offsetX.animateTo(
+                                        targetValue = 0f,
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow
+                                        )
+                                    )
+                                    offsetY.animateTo(
                                         targetValue = 0f,
                                         animationSpec = spring(
                                             dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -272,22 +340,53 @@ fun EnhancedRestaurantCard(
                                     showMessageOverlay = false
                                 }
                             }
-                        }
-                    ) { change, dragAmount ->
-                        change.consume()
-                        coroutineScope.launch {
-                            offsetX.snapTo(offsetX.value + dragAmount)
-
-                            // Check if we crossed the threshold during drag
-                            if (abs(offsetX.value) > swipeThreshold && currentSwipeMessage.isEmpty()) {
-                                currentSwipeMessage = if (offsetX.value > 0) {
-                                    positiveMessages.random()
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            coroutineScope.launch {
+                                // Determine whether this is more of a horizontal or vertical drag
+                                if (abs(dragAmount.x) > abs(dragAmount.y)) {
+                                    // Horizontal drag - update X offset
+                                    offsetX.snapTo(offsetX.value + dragAmount.x)
+                                    // Reset Y offset
+                                    if (abs(offsetY.value) > 0) {
+                                        offsetY.snapTo(offsetY.value * 0.9f)
+                                    }
                                 } else {
-                                    negativeMessages.random()
+                                    // Vertical drag - update Y offset
+                                    offsetY.snapTo(offsetY.value + dragAmount.y)
+                                    // Reset X offset
+                                    if (abs(offsetX.value) > 0) {
+                                        offsetX.snapTo(offsetX.value * 0.9f)
+                                    }
+                                }
+
+                                // Check if we crossed the threshold during drag for horizontal swipes
+                                if (abs(offsetX.value) > horizontalSwipeThreshold &&
+                                    currentSwipeMessage.isEmpty() &&
+                                    abs(offsetX.value) > abs(offsetY.value)) {
+
+                                    currentSwipeMessage = if (offsetX.value > 0) {
+                                        positiveMessages.random()
+                                    } else {
+                                        negativeMessages.random()
+                                    }
+                                }
+
+                                // Check if we crossed the threshold during drag for vertical swipes
+                                if (abs(offsetY.value) > verticalSwipeThreshold &&
+                                    currentSwipeMessage.isEmpty() &&
+                                    abs(offsetY.value) > abs(offsetX.value)) {
+
+                                    currentSwipeMessage = if (offsetY.value < 0) {
+                                        "Next restaurant!"
+                                    } else {
+                                        "Previous restaurant!"
+                                    }
                                 }
                             }
                         }
-                    }
+                    )
                 },
             shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
@@ -397,6 +496,54 @@ fun EnhancedRestaurantCard(
                     }
                 }
 
+                // Up swipe indicator
+                Box(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .align(Alignment.TopCenter)
+                        .alpha((-(offsetY.value) / 100f).coerceIn(0f, 1f))
+                ) {
+                    Card(
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2196F3))
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "NEXT",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
+                // Down swipe indicator
+                Box(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .align(Alignment.BottomCenter)
+                        .alpha((offsetY.value / 100f).coerceIn(0f, 1f))
+                ) {
+                    Card(
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF9C27B0))
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "PREV",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
                 // Bottom info panel with details button
                 Box(
                     modifier = Modifier
@@ -415,12 +562,12 @@ fun EnhancedRestaurantCard(
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
                         Box(modifier = Modifier.fillMaxWidth()) {
-                            // Restaurant info (with padding on both sides for buttons)
+                            // Restaurant info (with padding on the right side for details button)
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp)
-                                    .padding(start = 56.dp, end = 56.dp) // Space for both buttons
+                                    .padding(end = 56.dp) // Space for details button only
                             ) {
                                 Text(
                                     text = restaurant.name,
@@ -469,29 +616,6 @@ fun EnhancedRestaurantCard(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.Gray
                                 )
-                            }
-
-                            // Undo button on the left side (conditionally shown)
-                            if (showUndoButton) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.CenterStart)
-                                        .padding(start = 8.dp)
-                                ) {
-                                    IconButton(
-                                        onClick = onUndoClick,
-                                        modifier = Modifier
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF4CAF50))
-                                            .size(44.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Refresh,
-                                            contentDescription = "Undo",
-                                            tint = Color.White
-                                        )
-                                    }
-                                }
                             }
 
                             // Details button on the right side
@@ -562,9 +686,6 @@ fun HomeView(navController: NavController) {
     // State for the list of restaurants
     val restaurantList = remember { mutableStateListOf<Restaurant>() }
 
-    // Previous restaurants stack for undo functionality (limited to 2)
-    val previousRestaurants = remember { mutableStateListOf<Restaurant>() }
-
     // Loading state for when data is being fetched
     var isLoading by remember { mutableStateOf(true) }
 
@@ -580,19 +701,28 @@ fun HomeView(navController: NavController) {
     // Coroutine scope for animations
     val coroutineScope = rememberCoroutineScope()
 
-    // Function to handle undo action
-    val handleUndo = {
-        if (previousRestaurants.isNotEmpty() && !isCardSwiping) {
-            val lastRestaurant = previousRestaurants.last()
-            previousRestaurants.removeLast()
+    // Function to navigate to the next restaurant
+    val goToNextRestaurant = {
+        coroutineScope.launch {
+            if (currentIndex < restaurantList.size - 1) {
+                isCardSwiping = true
+                delay(5) // Allow animation to complete
+                currentIndex++
+                delay(5)
+                isCardSwiping = false
+            }
+        }
+    }
 
-            // If we're at the end of the list, we need special handling
-            if (currentIndex >= restaurantList.size) {
-                restaurantList.add(lastRestaurant)
-                currentIndex = restaurantList.size - 1
-            } else {
-                // Otherwise, just go back to the previous restaurant
-                currentIndex = (currentIndex - 1).coerceAtLeast(0)
+    // Function to navigate to the previous restaurant
+    val goToPreviousRestaurant = {
+        coroutineScope.launch {
+            if (currentIndex > 0) {
+                isCardSwiping = true
+                delay(5) // Allow animation to complete
+                currentIndex--
+                delay(5)
+                isCardSwiping = false
             }
         }
     }
@@ -661,15 +791,6 @@ fun HomeView(navController: NavController) {
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
-//
-//                // Optional: Add a menu icon or profile button
-//                IconButton(onClick = { /* Menu action */ }) {
-//                    Icon(
-//                        imageVector = Icons.Default.Menu,
-//                        contentDescription = "Menu",
-//                        tint = Color.White
-//                    )
-//                }
             }
         }
 
@@ -695,12 +816,6 @@ fun HomeView(navController: NavController) {
                                 // Mark card as swiping
                                 isCardSwiping = true
 
-                                // Add current restaurant to previous (maintain max 2)
-                                if (previousRestaurants.size >= 2) {
-                                    previousRestaurants.removeAt(0) // Remove oldest
-                                }
-                                previousRestaurants.add(restaurantList[currentIndex])
-
                                 // Move to next restaurant with a slight delay to allow animation to complete
                                 coroutineScope.launch {
                                     delay(50) // Short delay for animation
@@ -714,8 +829,14 @@ fun HomeView(navController: NavController) {
                             onDetailsClick = {
                                 showDetailScreen = true
                             },
-                            onUndoClick = handleUndo,
-                            showUndoButton = previousRestaurants.isNotEmpty() && !isCardSwiping
+                            onSwipeUp = {
+                                // Go to next restaurant on swipe up
+                                goToNextRestaurant()
+                            },
+                            onSwipeDown = {
+                                // Go to previous restaurant on swipe down
+                                goToPreviousRestaurant()
+                            }
                         )
                     } else {
                         // No more restaurants to show
@@ -753,12 +874,6 @@ fun HomeView(navController: NavController) {
 
                                         delay(10) // Wait for animation to complete
 
-                                        // Add to previous for undo functionality (maintain max 2)
-                                        if (previousRestaurants.size >= 2) {
-                                            previousRestaurants.removeAt(0) // Remove oldest
-                                        }
-                                        previousRestaurants.add(restaurantList[currentIndex])
-
                                         // Move to next restaurant
                                         if (currentIndex < restaurantList.size - 1) {
                                             currentIndex++
@@ -776,12 +891,6 @@ fun HomeView(navController: NavController) {
                                         isCardSwiping = true
 
                                         delay(10) // Wait for animation to complete
-
-                                        // Add to previous for undo functionality (maintain max 2)
-                                        if (previousRestaurants.size >= 2) {
-                                            previousRestaurants.removeAt(0) // Remove oldest
-                                        }
-                                        previousRestaurants.add(restaurantList[currentIndex])
 
                                         // Move to next restaurant
                                         if (currentIndex < restaurantList.size - 1) {
