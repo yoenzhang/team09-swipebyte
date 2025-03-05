@@ -548,12 +548,13 @@ fun EnhancedRestaurantCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
+                        .align(Alignment.BottomCenter),
+                    contentAlignment = Alignment.Center
                 ) {
                     // Main info rectangle
                     Card(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .fillMaxWidth(0.95f)
                             .padding(bottom = 16.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
