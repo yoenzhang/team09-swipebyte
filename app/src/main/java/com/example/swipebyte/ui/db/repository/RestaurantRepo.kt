@@ -6,14 +6,18 @@ import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.data.models.YelpBusiness
 import com.example.swipebyte.ui.data.models.YelpBusinessDetailsResponse
 import com.example.swipebyte.ui.data.models.YelpCategory
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.Source
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
@@ -45,29 +49,30 @@ val retrofit = Retrofit.Builder()
 val yelpAPI = retrofit.create(YelpAPI::class.java)
 
 class RestaurantRepository {
-    private val db = FirebaseFirestore.getInstance()
+    private val db = FirebaseFirestore.getInstance().apply {
+        // Enable offline persistence for faster local access
+        firestoreSettings = firestoreSettings.toBuilder().setPersistenceEnabled(true).build()
+    }
     private val restaurantCollection = db.collection("restaurants")
     private val yelpApiKey = "pmie5_FVr0xgJsJyZWnmVRKF2WoTPQFH7iOaO7CUTMoQeqDlX54gvf0ql4ZbS89usMdSrExV9nbsmIXiYN7_h-RNWguknSTJ_KlwGsfaDEwnpOrssaBEwXqs_-XFZ3Yx"
 
-    // Modified: Added forceRefresh parameter to control refresh behavior.
+    // Modified getRestaurants: first try loading cached data from Firestore using Source.CACHE.
     suspend fun getRestaurants(forceRefresh: Boolean = false): List<Restaurant> {
         return withContext(Dispatchers.IO) {
             if (!forceRefresh) {
-                // First, try to fetch cached restaurants from Firebase.
                 try {
-                    val snapshot = restaurantCollection.limit(50).get().await()
-                    val firebaseRestaurants = snapshot.documents.mapNotNull { doc ->
-                        doc.toObject(Restaurant::class.java)
-                    }
-                    if (firebaseRestaurants.isNotEmpty()) {
-                        Log.d("RestaurantRepo", "Loaded ${firebaseRestaurants.size} restaurants from Firebase cache")
-                        return@withContext firebaseRestaurants
+                    val cacheSnapshot = restaurantCollection.get(Source.CACHE).await()
+                    if (!cacheSnapshot.isEmpty) {
+                        Log.d("RestaurantRepo", "Loaded ${cacheSnapshot.size()} restaurants from cache")
+                        return@withContext cacheSnapshot.documents.mapNotNull { doc ->
+                            mapDocumentToRestaurant(doc)
+                        }
                     }
                 } catch (e: Exception) {
-                    Log.e("RestaurantRepo", "Error fetching from Firebase: ${e.message}")
+                    Log.e("RestaurantRepo", "Error fetching from cache: ${e.message}")
                 }
             }
-            // Either force refresh or no data available in Firebase – fetch from Yelp.
+            // Either forceRefresh is true or cache is empty – fetch from Yelp.
             try {
                 val yelpRestaurants = fetchFromYelp()
                 val detailRestaurants = yelpRestaurants.map { restaurant ->
@@ -80,14 +85,14 @@ class RestaurantRepository {
                 detailRestaurants
             } catch (e: Exception) {
                 Log.e("RestaurantRepo", "Error fetching from Yelp: ${e.message}")
-                // Fallback to Firebase if Yelp fails
+                // Fallback to Firestore SERVER if Yelp fails
                 try {
-                    val snapshot = restaurantCollection.limit(50).get().await()
+                    val snapshot = restaurantCollection.get(Source.SERVER).await()
                     snapshot.documents.mapNotNull { doc ->
-                        doc.toObject(Restaurant::class.java)
+                        mapDocumentToRestaurant(doc)
                     }
                 } catch (fallbackE: Exception) {
-                    Log.e("RestaurantRepo", "Error fetching from Firebase fallback: ${fallbackE.message}")
+                    Log.e("RestaurantRepo", "Error fetching from Firestore fallback: ${fallbackE.message}")
                     emptyList()
                 }
             }
@@ -96,7 +101,6 @@ class RestaurantRepository {
 
     private suspend fun fetchFromYelp(): List<Restaurant> {
         val response = yelpAPI.getRestaurants("Toronto", authHeader = "Bearer $yelpApiKey")
-
         return response.businesses.map { business ->
             Restaurant(
                 id = business.id,
@@ -117,8 +121,6 @@ class RestaurantRepository {
         return try {
             val response = yelpAPI.getBusinessDetails(restaurant.id, authHeader = "Bearer $yelpApiKey")
             Log.d("RestaurantRepo", "Successfully fetched details for ${restaurant.name}")
-
-            // Only update if new details are available
             restaurant.copy(
                 hours = response.hours ?: restaurant.hours,
                 imageUrls = response.photos.ifEmpty { restaurant.imageUrls }
@@ -132,15 +134,12 @@ class RestaurantRepository {
     private fun formatAddress(business: YelpBusiness): String {
         val location = business.location
         val addressParts = mutableListOf<String>()
-
         location?.let {
             it.address1?.takeIf { address -> address.isNotEmpty() }?.let { address -> addressParts.add(address) }
-
             if (it.city != null && it.state != null && it.zip_code != null) {
                 addressParts.add("${it.city}, ${it.state} ${it.zip_code}")
             }
         }
-
         return if (addressParts.isNotEmpty()) {
             addressParts.joinToString(", ")
         } else {
@@ -152,17 +151,48 @@ class RestaurantRepository {
         withContext(Dispatchers.IO) {
             try {
                 val batch = db.batch()
-
                 restaurants.forEach { restaurant ->
                     val docRef = restaurantCollection.document(restaurant.id)
                     batch.set(docRef, restaurant, SetOptions.merge())
                 }
-
                 batch.commit().await()
                 Log.d("RestaurantRepo", "Successfully updated ${restaurants.size} restaurants in Firebase")
             } catch (e: Exception) {
                 Log.e("RestaurantRepo", "Error storing in Firebase: ${e.message}")
             }
+        }
+    }
+
+    // New: Realtime updates using snapshot listener via Kotlin Flow.
+    fun getRestaurantsRealtime() = callbackFlow<List<Restaurant>> {
+        val registration = restaurantCollection.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            snapshot?.let {
+                val restaurants = it.documents.mapNotNull { doc -> mapDocumentToRestaurant(doc) }
+                trySend(restaurants).isSuccess
+            }
+        }
+        awaitClose { registration.remove() }
+    }
+
+    // Helper function to safely map a DocumentSnapshot to a Restaurant.
+    private fun mapDocumentToRestaurant(doc: DocumentSnapshot): Restaurant? {
+        return try {
+            val restaurant = doc.toObject(Restaurant::class.java)
+            restaurant?.let {
+                // Check if the "distance" field is stored as a String and convert if necessary.
+                val distanceValue = doc.get("distance")
+                if (distanceValue is String) {
+                    it.distance = distanceValue.toDoubleOrNull() ?: 0.0
+                }
+            }
+            restaurant
+        } catch (e: Exception) {
+            Log.e("RestaurantRepo", "Error deserializing restaurant: ${e.message}")
+            null
         }
     }
 }
