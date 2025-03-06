@@ -40,14 +40,14 @@ class UserQueryable {
             } ?: println("No authenticated user found")
         }
 
-        suspend fun getUserData(): Map<String, Any>? {
+        suspend fun getUserData(): Pair<String, Map<String, Any>>? {
             val auth = FirebaseAuth.getInstance()
             val db = FirebaseFirestore.getInstance()
             val user = auth.currentUser
 
             return user?.let {
                 val doc = db.collection("users").document(user.uid).get().await()
-                if (doc.exists()) doc.data else null
+                if (doc.exists()) doc.id to (doc.data ?: emptyMap()) else null
             }
         }
 

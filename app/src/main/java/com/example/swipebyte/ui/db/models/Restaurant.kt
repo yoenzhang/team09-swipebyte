@@ -46,7 +46,7 @@ class RestaurantQueryable {
                     val restaurantLongitude = it.longitude
                     val distance = calculateDistance(latitude, longitude, restaurantLatitude, restaurantLongitude)
                     restaurant.distance = distance
-                    if (distance <= 5) { // 5 km radius for example, TODO: add this as param
+                    if (distance <= 20000) { // 5 km radius for example, TODO: add this as param
                         restaurants.add(restaurant)
                     }
                 }
