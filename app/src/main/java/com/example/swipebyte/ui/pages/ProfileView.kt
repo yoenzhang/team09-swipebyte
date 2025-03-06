@@ -9,8 +9,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
-
 @Composable
+
 fun ProfileView(navController: NavController, authViewModel: AuthViewModel) {
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -27,7 +27,15 @@ fun ProfileView(navController: NavController, authViewModel: AuthViewModel) {
         Button(onClick = {
             authViewModel.logout()
         }) {
-            Text("log out")
+            Text("Log Out")
+        }
+
+        // Send Friend Request Button
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = { navController.navigate(Screen.FriendRequests.route) }
+        ) {
+            Text("Go to Friend Requests")
         }
     }
 }

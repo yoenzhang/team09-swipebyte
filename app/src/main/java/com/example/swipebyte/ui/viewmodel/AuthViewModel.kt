@@ -14,12 +14,17 @@ class AuthViewModel : ViewModel() {
     private val _isLoggedIn = MutableLiveData(false)
     val isLoggedIn: LiveData<Boolean> get() = _isLoggedIn
 
+    private val _currentUserId = MutableLiveData<String?>(null)
+    val currentUserId: LiveData<String?> get() = _currentUserId
+
+
     init {
         firebaseAuth.addAuthStateListener { auth ->
             val user = auth.currentUser
             Log.d("AuthViewModel", "Auth state changed: User = ${user?.email ?: "No user"}")
 
             if (user != null) {
+                _currentUserId.value = user.uid
                 user.reload().addOnCompleteListener { reloadTask ->
                     if (reloadTask.isSuccessful) {
                         _isLoggedIn.value = firebaseAuth.currentUser != null
@@ -29,6 +34,7 @@ class AuthViewModel : ViewModel() {
                     }
                 }
             } else {
+                _currentUserId.value = null
                 _isLoggedIn.value = false
             }
         }
@@ -46,6 +52,7 @@ class AuthViewModel : ViewModel() {
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     _isLoggedIn.value = true
+                    _currentUserId.value = firebaseAuth.currentUser?.uid  // Set user ID on login
                     Log.d("AuthViewModel", "Login successful: ${firebaseAuth.currentUser?.email}")
                     UserQueryable.saveUserDataToFirestore()
                     onResult(true)
@@ -68,6 +75,7 @@ class AuthViewModel : ViewModel() {
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     _isLoggedIn.value = true
+                    _currentUserId.value = firebaseAuth.currentUser?.uid  // Set user ID on signup
                     Log.d("AuthViewModel", "Sign Up successful: ${firebaseAuth.currentUser?.email}")
                     UserQueryable.saveUserDataToFirestore()
                     onResult(true)
@@ -82,5 +90,6 @@ class AuthViewModel : ViewModel() {
     fun logout() {
         firebaseAuth.signOut()
         _isLoggedIn.value = false
+        _currentUserId.value = null  // Clear user ID on logout
     }
 }

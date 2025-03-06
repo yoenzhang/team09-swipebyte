@@ -1,5 +1,6 @@
 package com.example.swipebyte.ui.navigation  // ✅ Use lowercase for "swipebyte"
 
+import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -11,18 +12,21 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.LiveData
 import androidx.navigation.*
 import androidx.navigation.compose.*
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.swipebyte.R
 import com.example.swipebyte.ui.pages.CommunityFavouritesView
 import com.example.swipebyte.ui.pages.DealsOfTheDayView
+import com.example.swipebyte.ui.pages.FriendRequestView
 import com.example.swipebyte.ui.pages.HomeView
 import com.example.swipebyte.ui.pages.LoginScreen
 import com.example.swipebyte.ui.pages.ProfileView
 import com.example.swipebyte.ui.pages.SignUpScreen
 import com.example.swipebyte.ui.theme.SwipeByteTheme
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
+import com.example.swipebyte.ui.viewmodel.FriendViewModel
 
 
 sealed class Screen(val route: String, val title: String, @DrawableRes val icon: Int? = null) {
@@ -32,10 +36,10 @@ sealed class Screen(val route: String, val title: String, @DrawableRes val icon:
     object DealsOfTheDay : Screen("dealsOfTheDay", "Deals", R.drawable.heartcheck)
     object CommunityFavourites : Screen("communityFavourites", "Community", R.drawable.star)
     object Profile : Screen("profile", "Profile", R.drawable.profile)
+    object FriendRequests : Screen("friendRequests", "Friend Requests")
 }
-
 @Composable
-fun AppNavigation(authViewModel: AuthViewModel) {
+fun AppNavigation(authViewModel: AuthViewModel, friendViewModel: FriendViewModel, userId: LiveData<String?>) {
     val navController = rememberNavController()
 
     // Observe login status from ViewModel
@@ -57,7 +61,19 @@ fun AppNavigation(authViewModel: AuthViewModel) {
                 composable(Screen.Home.route) { HomeView(navController) }
                 composable(Screen.DealsOfTheDay.route) { DealsOfTheDayView(navController) }
                 composable(Screen.CommunityFavourites.route) { CommunityFavouritesView(navController) }
-                composable(Screen.Profile.route) { ProfileView(navController, authViewModel)}
+                composable(Screen.Profile.route) { ProfileView(navController, authViewModel) }
+                composable(Screen.FriendRequests.route) {
+                    val userId by userId.observeAsState()
+                    // Handle null userId case and pass non-null value to the FriendRequestView
+                    userId?.let { id ->
+                        // Safe to pass 'id' as it's guaranteed non-null
+                        FriendRequestView(navController, id)
+                    } ?: run {
+                        // Handle the case where userId is null (you can show a loading screen or error)
+                        // For example, you can log an error or show a fallback UI
+                        Log.e("AppNavigation", "User ID is null in FriendRequests screen")
+                    }
+                }
                 composable(Screen.Login.route) {
                     LoginScreen(authViewModel, navController)
                 }
