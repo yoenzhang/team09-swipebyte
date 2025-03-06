@@ -112,7 +112,7 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            FilterOptions()
+            //FilterOptions()
 
             Spacer(modifier = Modifier.height(16.dp))
 
