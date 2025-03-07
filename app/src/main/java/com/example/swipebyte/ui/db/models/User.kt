@@ -6,6 +6,15 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 
+data class User(
+    val displayName: String = "",
+    val email: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val lastLogin: Long = System.currentTimeMillis(),
+    val cuisinePreferences: List<String> = emptyList(),
+    val location: GeoPoint = GeoPoint(0.0, 0.0)
+)
+
 class UserQueryable {
     companion object {
         fun saveUserDataToFirestore(displayName: String = "") {
@@ -38,6 +47,16 @@ class UserQueryable {
             } ?: println("No authenticated user found")
         }
 
+        suspend fun getUserData(): Pair<String, Map<String, Any>>? {
+            val auth = FirebaseAuth.getInstance()
+            val db = FirebaseFirestore.getInstance()
+            val user = auth.currentUser
+
+            return user?.let {
+                val doc = db.collection("users").document(user.uid).get().await()
+                if (doc.exists()) doc.id to (doc.data ?: emptyMap()) else null
+            }
+        }
 
         fun updateUserLocation(latitude: Double, longitude: Double) {
             val auth = FirebaseAuth.getInstance()

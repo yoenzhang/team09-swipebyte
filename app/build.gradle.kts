@@ -99,5 +99,9 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.logging.interceptor)
 
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.google.firebase.firestore.ktx)
+    implementation(libs.play.services.location.v1800)
+
 
 }

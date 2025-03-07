@@ -40,6 +40,12 @@ class MainActivity : ComponentActivity() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         checkAndRequestLocationPermission()
 
+        authViewModel.isLoggedIn.observe(this) { isLoggedIn ->
+            if (isLoggedIn) {
+                startLocationUpdates() // Refresh location when user logs in
+            }
+        }
+
         val userId = authViewModel.currentUserId
         setContent {
             SwipeByteTheme {
@@ -71,7 +77,7 @@ class MainActivity : ComponentActivity() {
         }
 
     @SuppressLint("MissingPermission") // Ensure permission is granted before calling
-    private fun startLocationUpdates() {
+    fun startLocationUpdates() {
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 60000).build()
 
         val locationCallback = object : LocationCallback() {
