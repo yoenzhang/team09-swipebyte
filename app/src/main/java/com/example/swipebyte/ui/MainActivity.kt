@@ -15,6 +15,7 @@ import com.example.swipebyte.ui.data.models.UserQueryable
 import com.example.swipebyte.ui.navigation.AppNavigation
 import com.example.swipebyte.ui.theme.SwipeByteTheme
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
+import com.example.swipebyte.ui.viewmodel.FriendViewModel
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -25,6 +26,8 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
+    private val friendViewModel: FriendViewModel by viewModels()
+
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,9 +46,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        val userId = authViewModel.currentUserId
         setContent {
             SwipeByteTheme {
-                AppNavigation(authViewModel)
+                AppNavigation(authViewModel, friendViewModel, userId)
             }
         }
     }

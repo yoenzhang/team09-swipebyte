@@ -6,4 +6,5 @@ val Orange = Color(0xFFF77F00)   // Secondary Orange
 val Yellow = Color(0xFFFCBF49)   // Tertiary Yellow
 val LightGrey = Color(0xFFB5B5B5) // Surface Light Grey
 val White = Color(0xFFFFFFFF)    // Background White
+val Blue = Color(0xFF0078F7)
 val Black = Color(0xFF000000)    // Text Black

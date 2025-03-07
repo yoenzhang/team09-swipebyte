@@ -17,7 +17,7 @@ data class User(
 
 class UserQueryable {
     companion object {
-        fun saveUserDataToFirestore() {
+        fun saveUserDataToFirestore(displayName: String = "") {
             val auth = FirebaseAuth.getInstance()
             val db = FirebaseFirestore.getInstance()
             val user = auth.currentUser
@@ -25,8 +25,15 @@ class UserQueryable {
             user?.let {
                 val userRef = db.collection("users").document(user.uid)
 
+                // Use provided displayName if not empty, otherwise try to get from Auth
+                val effectiveDisplayName = if (displayName.isNotEmpty()) {
+                    displayName
+                } else {
+                    user.displayName ?: ""
+                }
+
                 val userData = mapOf(
-                    "displayName" to (user.displayName ?: ""),
+                    "displayName" to effectiveDisplayName,
                     "email" to (user.email ?: ""),
                     "createdAt" to System.currentTimeMillis(),
                     "lastLogin" to System.currentTimeMillis(),
