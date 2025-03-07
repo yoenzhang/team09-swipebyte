@@ -6,18 +6,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 
-data class User(
-    val displayName: String = "",
-    val email: String = "",
-    val createdAt: Long = System.currentTimeMillis(),
-    val lastLogin: Long = System.currentTimeMillis(),
-    val cuisinePreferences: List<String> = emptyList(),
-    val location: GeoPoint = GeoPoint(0.0, 0.0)
-)
-
 class UserQueryable {
     companion object {
-        fun saveUserDataToFirestore() {
+        fun saveUserDataToFirestore(displayName: String = "") {
             val auth = FirebaseAuth.getInstance()
             val db = FirebaseFirestore.getInstance()
             val user = auth.currentUser
@@ -25,8 +16,15 @@ class UserQueryable {
             user?.let {
                 val userRef = db.collection("users").document(user.uid)
 
+                // Use provided displayName if not empty, otherwise try to get from Auth
+                val effectiveDisplayName = if (displayName.isNotEmpty()) {
+                    displayName
+                } else {
+                    user.displayName ?: ""
+                }
+
                 val userData = mapOf(
-                    "displayName" to (user.displayName ?: ""),
+                    "displayName" to effectiveDisplayName,
                     "email" to (user.email ?: ""),
                     "createdAt" to System.currentTimeMillis(),
                     "lastLogin" to System.currentTimeMillis(),
@@ -40,16 +38,6 @@ class UserQueryable {
             } ?: println("No authenticated user found")
         }
 
-        suspend fun getUserData(): Map<String, Any>? {
-            val auth = FirebaseAuth.getInstance()
-            val db = FirebaseFirestore.getInstance()
-            val user = auth.currentUser
-
-            return user?.let {
-                val doc = db.collection("users").document(user.uid).get().await()
-                if (doc.exists()) doc.data else null
-            }
-        }
 
         fun updateUserLocation(latitude: Double, longitude: Double) {
             val auth = FirebaseAuth.getInstance()

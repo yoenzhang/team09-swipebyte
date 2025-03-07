@@ -64,21 +64,36 @@ class AuthViewModel : ViewModel() {
             }
     }
 
-    fun signUp(email: String?, password: String?, onResult: (Boolean) -> Unit) {
-        if (email.isNullOrEmpty() || password.isNullOrEmpty()) {
-            Log.e("AuthViewModel", "Email or password is empty")
+    fun signUp(name: String, email: String?, password: String?, onResult: (Boolean) -> Unit) {
+        if (name.isEmpty() || email.isNullOrEmpty() || password.isNullOrEmpty()) {
+            Log.e("AuthViewModel", "Name, email or password is empty")
             onResult(false)  // Return false to indicate failure
             return
         }
 
-        firebaseAuth.createUserWithEmailAndPassword(email,password)
+        firebaseAuth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     _isLoggedIn.value = true
                     _currentUserId.value = firebaseAuth.currentUser?.uid  // Set user ID on signup
-                    Log.d("AuthViewModel", "Sign Up successful: ${firebaseAuth.currentUser?.email}")
-                    UserQueryable.saveUserDataToFirestore()
-                    onResult(true)
+
+                    // Update the display name in Firebase Auth
+                    val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                        .setDisplayName(name)
+                        .build()
+
+                    firebaseAuth.currentUser?.updateProfile(profileUpdates)
+                        ?.addOnCompleteListener { profileTask ->
+                            if (profileTask.isSuccessful) {
+                                Log.d("AuthViewModel", "User profile updated with name: $name")
+                            } else {
+                                Log.e("AuthViewModel", "Failed to update display name: ${profileTask.exception?.message}")
+                            }
+
+                            // Save to Firestore regardless of profile update success
+                            UserQueryable.saveUserDataToFirestore(name)
+                            onResult(true)
+                        }
                 } else {
                     _isLoggedIn.value = false
                     Log.e("AuthViewModel", "Sign Up failed: ${task.exception?.message}")

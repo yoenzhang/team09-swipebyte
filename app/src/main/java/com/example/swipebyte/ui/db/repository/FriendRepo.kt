@@ -10,6 +10,27 @@ import com.google.firebase.firestore.Query
 class FriendRepo {
     private val db = FirebaseFirestore.getInstance()
 
+
+    fun getUserIdByEmail(email: String, onResult: (String?) -> Unit) {
+        db.collection("users")
+            .whereEqualTo("email", email)
+            .get()
+            .addOnSuccessListener { documents ->
+                if (!documents.isEmpty) {
+                    // Assuming document ID is the userId
+                    val userId = documents.documents[0].id
+                    onResult(userId)
+                } else {
+                    // If no user found
+                    onResult(null)
+                }
+            }
+            .addOnFailureListener { exception ->
+                Log.e("FriendRepo", "Error fetching user by email", exception)
+                onResult(null) // Return null if there's an error
+            }
+    }
+
     // ✅ Send a friend request
     fun sendFriendRequest(senderId: String, receiverId: String, onResult: (Boolean) -> Unit) {
         val request = hashMapOf(
@@ -49,15 +70,16 @@ class FriendRepo {
     }
 
     // ✅ Load pending friend requests
-    fun loadPendingRequests(userId: String, onResult: (List<FriendRequest>) -> Unit) {
-        Log.d("FriendRequests", "Loading pending requests for user: $userId") // Log before calling Firestore
+    fun loadPendingRequests(userId: String, onResult: (List<Pair<FriendRequest, String>>) -> Unit) {
+        Log.d("FriendRequests", "Loading pending requests for user: $userId")
 
         db.collection("friendRequests")
             .whereEqualTo("receiverId", userId)
-            .orderBy("timestamp", Query.Direction.DESCENDING) // Order latest requests first
+            .orderBy("timestamp", Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { documents ->
-                Log.d("FriendRequests", "Document snapshot retrieved: ${documents.size()}") // Log number of docs retrieved
+                Log.d("FriendRequests", "Document snapshot retrieved: ${documents.size()}")
+
                 val requests = documents.map { doc ->
                     FriendRequest(
                         requestId = doc.id,
@@ -65,13 +87,49 @@ class FriendRepo {
                         timestamp = doc.getTimestamp("timestamp")?.seconds ?: 0L
                     )
                 }
-                Log.d("FriendRequests", "Loaded friend requests: $requests") // Log the requests
-                onResult(requests)
+
+                // Fetch sender names
+                fetchSenderNames(requests, onResult)
             }
             .addOnFailureListener { exception ->
-                Log.e("FriendRequests", "Failed to load friend requests", exception) // Log any error
+                Log.e("FriendRequests", "Failed to load friend requests", exception)
                 onResult(emptyList())
             }
+    }
+
+    // Fetch sender names from "users" collection
+    private fun fetchSenderNames(requests: List<FriendRequest>, onResult: (List<Pair<FriendRequest, String>>) -> Unit) {
+        val db = FirebaseFirestore.getInstance()
+        val results = mutableListOf<Pair<FriendRequest, String>>()
+        var remainingRequests = requests.size
+
+        if (requests.isEmpty()) {
+            onResult(emptyList())
+            return
+        }
+
+        for (request in requests) {
+            db.collection("users").document(request.senderId).get()
+                .addOnSuccessListener { document ->
+                    val senderName = document.getString("displayName") ?: "Unknown"
+                    results.add(request to senderName)
+
+                    // When all names are fetched, return the results
+                    if (--remainingRequests == 0) {
+                        onResult(results)
+                    }
+                }
+                .addOnFailureListener {
+                    Log.e("FriendRequests", "Failed to fetch name for ${request.senderId}")
+
+                    // Default to "Unknown" if fetching fails
+                    results.add(request to "Unknown")
+
+                    if (--remainingRequests == 0) {
+                        onResult(results)
+                    }
+                }
+        }
     }
 
 

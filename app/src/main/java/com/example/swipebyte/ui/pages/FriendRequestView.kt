@@ -124,16 +124,11 @@ fun FriendRequestView(
         Button(
             onClick = {
                 if (emailInput.isNotEmpty()) {
-                    // TODO: Implement method to find user ID by email
-                    // For now, just log (you'll need to replace this with actual implementation)
-                    Log.d("FriendRequest", "Attempting to send friend request to $emailInput")
 
-                    // This is a placeholder - you'll need to implement a method to:
-                    // 1. Lookup the receiver's user ID by email
-                    // 2. Call sendFriendRequest with the correct IDs
+                    Log.d("FriendRequest", "Attempting to send friend request to $emailInput")
                     viewModel.sendFriendRequest(
                         senderId = userId,
-                        receiverId = "placeholder_receiver_id" // Replace with actual lookup
+                        email = emailInput
                     )
 
                     emailInput = ""
@@ -147,9 +142,10 @@ fun FriendRequestView(
 
         // Scrollable list of friend requests
         LazyColumn {
-            items(pendingRequests) { request ->
+            items(pendingRequests) { (request, name) ->
                 FriendRequestItem(
                     request = request,
+                    name = name,
                     onAccept = {
                         viewModel.acceptFriendRequest(
                             requestId = request.requestId,
@@ -173,6 +169,7 @@ fun FriendRequestView(
 @Composable
 fun FriendRequestItem(
     request: FriendRequest,
+    name: String,
     onAccept: () -> Unit,
     onDecline: () -> Unit
 ) {
@@ -185,7 +182,7 @@ fun FriendRequestItem(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = request.senderId, style = MaterialTheme.typography.bodyLarge)
+        Text(text = name, style = MaterialTheme.typography.bodyLarge)
 
         Row {
             // Accept Button

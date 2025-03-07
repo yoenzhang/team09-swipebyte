@@ -18,23 +18,38 @@ class FriendViewModel : ViewModel() {
 
     private val friendRepo = FriendRepo()  // Initialize FriendRepo directly in ViewModel
 
-    private val _pendingRequests = MutableLiveData<List<FriendRequest>>()
-    val pendingRequests: LiveData<List<FriendRequest>> = _pendingRequests
+    private val _pendingRequests = MutableLiveData<List<Pair<FriendRequest, String>>>()
+    val pendingRequests: LiveData<List<Pair<FriendRequest, String>>> get() = _pendingRequests
 
     private val _operationResult = MutableLiveData<Result<Boolean>>()
     val operationResult: LiveData<Result<Boolean>> = _operationResult
 
-    fun sendFriendRequest(senderId: String, receiverId: String) {
+    fun sendFriendRequest(senderId: String, email: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                friendRepo.sendFriendRequest(senderId, receiverId) { success ->
-                    _operationResult.postValue(Result.success(success))
+                // Fetch the receiver's user ID based on the email
+                friendRepo.getUserIdByEmail(email) { receiverId ->
+                    if (receiverId != null) {
+                        // Check if the sender and receiver are the same
+                        if (senderId == receiverId) {
+                            _operationResult.postValue(Result.failure(Exception("You cannot send a friend request to yourself.")))
+                        } else {
+                            // Once receiverId is found and it's not the sender, send the friend request
+                            friendRepo.sendFriendRequest(senderId, receiverId) { success ->
+                                _operationResult.postValue(Result.success(success))
+                            }
+                        }
+                    } else {
+                        // Handle case where user with the given email is not found
+                        _operationResult.postValue(Result.failure(Exception("User not found with the email $email")))
+                    }
                 }
             } catch (e: Exception) {
                 _operationResult.postValue(Result.failure(e))
             }
         }
     }
+
 
     fun acceptFriendRequest(requestId: String, senderId: String, receiverId: String) {
         viewModelScope.launch(Dispatchers.IO) {
