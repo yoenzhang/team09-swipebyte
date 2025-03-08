@@ -1012,8 +1012,6 @@ fun RestaurantDetailScreen(
                     .verticalScroll(scrollState)
                     .padding(16.dp)
             ) {
-                // Rest of the detail screen code remains unchanged...
-
                 // Basic info row
                 Row(
                     modifier = Modifier
