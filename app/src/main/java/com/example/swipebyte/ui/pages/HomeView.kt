@@ -916,20 +916,34 @@ fun RestaurantDetailScreen(
 ) {
     val scrollState = rememberScrollState()
 
+    // Intercept and consume all gesture inputs to prevent swiping on this screen
+    val interactionSource = remember { MutableInteractionSource() }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            // Add this modifier to consume all pointer input events
+            .pointerInput(Unit) {
+                // Detect and consume all touch events to prevent them from propagating
+                // to parent composables that might handle swipes
+                detectDragGestures { _, _ -> }
+            }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            // Header image
+            // Header image with explicit gesture blocking
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(250.dp)
+                    // Explicitly consume all touch events on the image
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null
+                    ) { /* Do nothing, just consume the click */ }
             ) {
                 // Use first image from the list or fallback
                 val imageUrl = if (restaurant.imageUrls.isNotEmpty()) {
@@ -990,7 +1004,7 @@ fun RestaurantDetailScreen(
                 )
             }
 
-            // Details content
+            // Details content - the scroll behavior is preserved but swipes won't trigger card gestures
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -998,6 +1012,8 @@ fun RestaurantDetailScreen(
                     .verticalScroll(scrollState)
                     .padding(16.dp)
             ) {
+                // Rest of the detail screen code remains unchanged...
+
                 // Basic info row
                 Row(
                     modifier = Modifier
