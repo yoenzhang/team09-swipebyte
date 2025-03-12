@@ -44,26 +44,6 @@ fun SettingsView(navController: NavController, authViewModel: AuthViewModel) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Add your settings options here
-        // Example:
-        SettingsItem(
-            title = "Account",
-            icon = Icons.Default.Person,
-            onClick = { /* Handle click */ }
-        )
-
-        SettingsItem(
-            title = "Notifications",
-            icon = Icons.Default.Notifications,
-            onClick = { /* Handle click */ }
-        )
-
-        SettingsItem(
-            title = "Privacy",
-            icon = Icons.Default.Lock,
-            onClick = { /* Handle click */ }
-        )
-
         // Log out option
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -78,46 +58,6 @@ fun SettingsView(navController: NavController, authViewModel: AuthViewModel) {
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
         ) {
             Text("Log Out")
-        }
-    }
-}
-
-@Composable
-fun SettingsItem(
-    title: String,
-    icon: ImageVector,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.width(24.dp))
-
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
