@@ -160,4 +160,43 @@ class AuthViewModel : ViewModel() {
                 }
             }
     }
+    fun reauthenticateAndUpdatePassword(currentPassword: String, newPassword: String, callback: (Boolean, String?) -> Unit) {
+        val user = firebaseAuth.currentUser
+        if (user == null) {
+            Log.e("AuthViewModel", "Update password failed: No user is signed in")
+            callback(false, "No user is signed in")
+            return
+        }
+
+        val email = user.email
+        if (email.isNullOrEmpty()) {
+            Log.e("AuthViewModel", "Update password failed: User email is missing")
+            callback(false, "User email is missing")
+            return
+        }
+
+        // Create credential for re-authentication
+        val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, currentPassword)
+
+        // Re-authenticate user
+        user.reauthenticate(credential)
+            .addOnCompleteListener { reauthTask ->
+                if (reauthTask.isSuccessful) {
+                    // Now update the password
+                    user.updatePassword(newPassword)
+                        .addOnCompleteListener { updateTask ->
+                            if (updateTask.isSuccessful) {
+                                Log.d("AuthViewModel", "Password updated successfully")
+                                callback(true, null)
+                            } else {
+                                Log.e("AuthViewModel", "Failed to update password: ${updateTask.exception?.message}")
+                                callback(false, updateTask.exception?.message ?: "Password update failed")
+                            }
+                        }
+                } else {
+                    Log.e("AuthViewModel", "Re-authentication failed: ${reauthTask.exception?.message}")
+                    callback(false, "Current password is incorrect or authentication expired")
+                }
+            }
+    }
 }

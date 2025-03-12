@@ -103,5 +103,10 @@ dependencies {
     implementation(libs.google.firebase.firestore.ktx)
     implementation(libs.play.services.location.v1800)
 
+    implementation("com.google.maps.android:maps-ktx:3.4.0")
+    implementation("com.google.maps.android:maps-utils-ktx:3.4.0")
+    implementation("androidx.compose.material:material-icons-extended:1.5.4")
+
+
 
 }
