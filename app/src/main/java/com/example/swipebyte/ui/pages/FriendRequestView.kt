@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.material3.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,11 +13,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Divider
@@ -39,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,113 +60,169 @@ fun FriendRequestView(
     navController: NavController,
     userId: String
 ) {
-    val viewModel: FriendViewModel = viewModel() // Correctly instantiate using the factory
-
+    val viewModel: FriendViewModel = viewModel()
     val pendingRequests by viewModel.pendingRequests.observeAsState(emptyList())
+    val friendsList by viewModel.friendsList.observeAsState(emptyList())
     val operationResult by viewModel.operationResult.observeAsState()
     var emailInput by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle operation results with side effects
-
-    LaunchedEffect(key1 = userId) {
+    LaunchedEffect(userId) {
         viewModel.loadPendingRequests(userId)
-        Log.d("FriendRequests", "LaunchedEffect - Loading pending requests for user: $userId")
+        viewModel.loadFriendsList(userId)
     }
 
     LaunchedEffect(operationResult) {
         operationResult?.let { result ->
-            if (result.isSuccess) {
-                // Optionally show a success toast or snackbar
-                Log.d("FriendRequest", "Operation successful")
-                // Clear any previous errors
-                viewModel.clearOperationResult()
-            } else {
-                // Optionally show an error toast or snackbar
-                Log.e("FriendRequest", "Operation failed", result.exceptionOrNull())
+            val message = result.getOrNull()?.takeIf { it.isNotBlank() }
+                ?: result.exceptionOrNull()?.message // Get exception message if it's a failure
+                ?: if (result.isSuccess) "Operation successful!" else "Operation failed."
+
+            if (message.isNotBlank()) {
+                snackbarHostState.showSnackbar(message)
             }
+            viewModel.clearOperationResult()
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Back Button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            IconButton(onClick = { navController.popBackStack() }) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back"
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Add Friends",
-            style = MaterialTheme.typography.headlineSmall,
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Input for adding a friend by email
-        OutlinedTextField(
-            value = emailInput,
-            onValueChange = { emailInput = it },
-            label = { Text("Enter Email to Add Friend") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Email),
-            singleLine = true,
-            shape = RoundedCornerShape(10.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Button to send a friend request
-        Button(
-            onClick = {
-                if (emailInput.isNotEmpty()) {
-
-                    Log.d("FriendRequest", "Attempting to send friend request to $emailInput")
-                    viewModel.sendFriendRequest(
-                        senderId = userId,
-                        email = emailInput
-                    )
-
-                    emailInput = ""
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
                 }
-            },
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Send Friend Request")
-        }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "Add Friends", style = MaterialTheme.typography.headlineSmall)
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Scrollable list of friend requests
-        LazyColumn {
-            items(pendingRequests) { (request, name) ->
-                FriendRequestItem(
-                    request = request,
-                    name = name,
-                    onAccept = {
-                        viewModel.acceptFriendRequest(
-                            requestId = request.requestId,
-                            senderId = request.senderId,
-                            receiverId = userId
-                        )
-                    },
-                    onDecline = {
-                        viewModel.declineFriendRequest(
-                            requestId = request.requestId,
-                            userId = userId
+            OutlinedTextField(
+                value = emailInput,
+                onValueChange = { emailInput = it },
+                label = { Text("Enter Email to Add Friend") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Email),
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    if (emailInput.isNotEmpty()) {
+                        viewModel.sendFriendRequest(userId, emailInput)
+                        emailInput = ""
+                    }
+                },
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Send Friend Request")
+            }
+
+            // Friend Requests Section
+            if (pendingRequests.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "Friend Requests (${pendingRequests.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Column {
+                    pendingRequests.forEach { (request, name) ->
+                        FriendRequestItem(
+                            request = request,
+                            name = name,
+                            onAccept = { viewModel.acceptFriendRequest(request.requestId, request.senderId, userId) },
+                            onDecline = { viewModel.declineFriendRequest(request.requestId, userId) }
                         )
                     }
+                }
+            }
+
+            // Friends List Section
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "Friends (${friendsList.size})",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (friendsList.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No friends yet. Send a friend request to get started!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                Column {
+                    friendsList.forEach { (friendId, friendName) ->
+                        FriendItem(friendId = friendId, friendName = friendName)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FriendItem(friendId: String, friendName: String) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Avatar placeholder
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = friendName.take(1).uppercase(),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.Bold
                 )
             }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Text(
+                text = friendName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
