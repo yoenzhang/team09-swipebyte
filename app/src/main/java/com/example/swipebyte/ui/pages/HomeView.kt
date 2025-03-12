@@ -3,20 +3,17 @@ package com.example.swipebyte.ui.pages
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -26,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,8 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -49,7 +43,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
@@ -64,6 +57,7 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import com.example.swipebyte.R
+import com.example.swipebyte.ui.data.models.SwipeQueryable
 import com.example.swipebyte.ui.data.models.YelpHours
 import com.example.swipebyte.ui.navigation.Screen
 
@@ -282,6 +276,7 @@ fun EnhancedRestaurantCard(
                                     )
 
                                     onSwiped(direction)
+                                    SwipeQueryable.recordSwipe(restaurant.id, restaurant.name, direction == "Right")
                                 }
                                 // Check if the vertical swipe threshold is met
                                 else if (abs(offsetY.value) > verticalSwipeThreshold && abs(offsetY.value) > abs(offsetX.value)) {
@@ -934,20 +929,34 @@ fun RestaurantDetailScreen(
 ) {
     val scrollState = rememberScrollState()
 
+    // Intercept and consume all gesture inputs to prevent swiping on this screen
+    val interactionSource = remember { MutableInteractionSource() }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            // Add this modifier to consume all pointer input events
+            .pointerInput(Unit) {
+                // Detect and consume all touch events to prevent them from propagating
+                // to parent composables that might handle swipes
+                detectDragGestures { _, _ -> }
+            }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            // Header image
+            // Header image with explicit gesture blocking
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(250.dp)
+                    // Explicitly consume all touch events on the image
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null
+                    ) { /* Do nothing, just consume the click */ }
             ) {
                 // Use first image from the list or fallback
                 val imageUrl = if (restaurant.imageUrls.isNotEmpty()) {
@@ -1008,7 +1017,7 @@ fun RestaurantDetailScreen(
                 )
             }
 
-            // Details content
+            // Details content - the scroll behavior is preserved but swipes won't trigger card gestures
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

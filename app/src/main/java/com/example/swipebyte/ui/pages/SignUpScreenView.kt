@@ -38,6 +38,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun SignUpScreen(authViewModel: AuthViewModel, navController: NavController) {
+    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -58,6 +59,18 @@ fun SignUpScreen(authViewModel: AuthViewModel, navController: NavController) {
             Text(text = "Sign Up", fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // New name field
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Name") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(15.dp)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             OutlinedTextField(
                 value = email,
@@ -96,7 +109,7 @@ fun SignUpScreen(authViewModel: AuthViewModel, navController: NavController) {
 
             Button(
                 onClick = {
-                    if (email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
+                    if (name.isBlank() || email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("Fields cannot be empty", duration = SnackbarDuration.Short)
                         }
@@ -109,7 +122,8 @@ fun SignUpScreen(authViewModel: AuthViewModel, navController: NavController) {
                         return@Button
                     }
 
-                    authViewModel.signUp(email, password) { success ->
+                    // You'll need to update your AuthViewModel to handle the name parameter
+                    authViewModel.signUp(name, email, password) { success ->
                         if (success) {
                             navController.navigate(Screen.Home.route) {
                                 popUpTo(Screen.SignUp.route) { inclusive = true }
