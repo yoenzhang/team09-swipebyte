@@ -16,31 +16,32 @@ import kotlinx.coroutines.launch
 
 class FriendViewModel : ViewModel() {
 
-    private val friendRepo = FriendRepo()  // Initialize FriendRepo directly in ViewModel
+    private val friendRepo = FriendRepo()  // Initialize FriendRepo
 
     private val _pendingRequests = MutableLiveData<List<Pair<FriendRequest, String>>>()
     val pendingRequests: LiveData<List<Pair<FriendRequest, String>>> get() = _pendingRequests
 
-    private val _operationResult = MutableLiveData<Result<Boolean>>()
-    val operationResult: LiveData<Result<Boolean>> = _operationResult
+    private val _friendsList = MutableLiveData<List<Pair<String, String>>>()
+    val friendsList: LiveData<List<Pair<String, String>>> get() = _friendsList
+
+    private val _operationResult = MutableLiveData<Result<String>>() // Changed from Result<Boolean> to Result<String>
+    val operationResult: LiveData<Result<String>> = _operationResult
 
     fun sendFriendRequest(senderId: String, email: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Fetch the receiver's user ID based on the email
                 friendRepo.getUserIdByEmail(email) { receiverId ->
                     if (receiverId != null) {
-                        // Check if the sender and receiver are the same
                         if (senderId == receiverId) {
                             _operationResult.postValue(Result.failure(Exception("You cannot send a friend request to yourself.")))
                         } else {
-                            // Once receiverId is found and it's not the sender, send the friend request
-                            friendRepo.sendFriendRequest(senderId, receiverId) { success ->
-                                _operationResult.postValue(Result.success(success))
+                            // Updated to receive a string message instead of boolean
+                            friendRepo.sendFriendRequest(senderId, receiverId) { message ->
+                                _operationResult.postValue(Result.success(message))
+                                loadPendingRequests(senderId)
                             }
                         }
                     } else {
-                        // Handle case where user with the given email is not found
                         _operationResult.postValue(Result.failure(Exception("User not found with the email $email")))
                     }
                 }
@@ -50,12 +51,12 @@ class FriendViewModel : ViewModel() {
         }
     }
 
-
     fun acceptFriendRequest(requestId: String, senderId: String, receiverId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 friendRepo.acceptFriendRequest(requestId, senderId, receiverId) { success ->
-                    _operationResult.postValue(Result.success(success))
+                    val message = if (success) "Friend request accepted successfully." else "Failed to accept friend request."
+                    _operationResult.postValue(Result.success(message))
                     loadPendingRequests(receiverId)
                 }
             } catch (e: Exception) {
@@ -68,7 +69,8 @@ class FriendViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 friendRepo.declineFriendRequest(requestId) { success ->
-                    _operationResult.postValue(Result.success(success))
+                    val message = if (success) "Friend request declined successfully." else "Failed to decline friend request."
+                    _operationResult.postValue(Result.success(message))
                     loadPendingRequests(userId)
                 }
             } catch (e: Exception) {
@@ -89,7 +91,22 @@ class FriendViewModel : ViewModel() {
         }
     }
 
+    fun loadFriendsList(userId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                friendRepo.loadFriendsList(userId) { friends ->
+                    _friendsList.postValue(friends)
+                }
+            } catch (e: Exception) {
+                Log.e("FriendViewModel", "Error loading friends list", e)
+                _friendsList.postValue(emptyList())
+                _operationResult.postValue(Result.failure(Exception("Failed to load friends list")))
+            }
+        }
+    }
+
     fun clearOperationResult() {
-        _operationResult.value = Result.success(false)
+        _operationResult.value = Result.success("")
     }
 }
+
