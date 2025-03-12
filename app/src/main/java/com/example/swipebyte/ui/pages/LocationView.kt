@@ -2,11 +2,9 @@ package com.example.swipebyte.ui.pages
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.location.Location
 import android.location.LocationManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -25,14 +23,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.swipebyte.ui.data.models.UserQueryable
-import com.google.firebase.firestore.GeoPoint
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -149,7 +145,8 @@ fun LocationView(navController: NavController) {
                                 latitude += dragAmount.y * -0.0001
                                 longitude += dragAmount.x * 0.0001
                             }
-                        }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     // Draw a grid pattern for map simulation
                     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -196,11 +193,10 @@ fun LocationView(navController: NavController) {
                     Box(
                         modifier = Modifier
                             .offset(
-                                x = with(LocalDensity.current) { ((size.width / 2) + markerX).toDp() },
-                                y = with(LocalDensity.current) { ((size.height / 2) + markerY).toDp() }
+                                x = with(LocalDensity.current) { markerX.toDp() },
+                                y = with(LocalDensity.current) { markerY.toDp() }
                             )
-                            .size(48.dp)
-                            .padding(8.dp),
+                            .size(48.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
