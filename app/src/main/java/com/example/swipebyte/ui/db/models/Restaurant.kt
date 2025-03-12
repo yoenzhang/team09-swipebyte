@@ -1,5 +1,6 @@
 package com.example.swipebyte.ui.data.models
 
+import android.content.Context
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.FirebaseFirestore
@@ -23,21 +24,32 @@ data class Restaurant(
     var distance: Double = 0.0,
     val url: String = "",
     val hours: List<YelpHours>? = emptyList()
-
-
 )
 
 class RestaurantQueryable {
     companion object {
         private val restaurantList : List<Restaurant> = emptyList()
 
-        // Fetch nearby restaurants (using GeoPoint and distance calculation)
-        suspend fun filterNearbyRestaurants(allRestaurants: List<Restaurant>): List<Restaurant> {
+        // Updated to accept a context for radius preference
+        suspend fun filterNearbyRestaurants(
+            allRestaurants: List<Restaurant>,
+            context: Context? = null
+        ): List<Restaurant> {
             val restaurants = mutableListOf<Restaurant>()
 
+            // Get user location
             val curLocation = UserQueryable.getUserLocation()
             val latitude = curLocation?.latitude ?: 0.0
             val longitude = curLocation?.longitude ?: 0.0
+
+            // Get radius preference (default to 5 km if not set)
+            val radiusInKm = context?.let {
+                it.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
+                    .getFloat("location_radius", 5.0f).toDouble()
+            } ?: 5.0
+
+            // Convert km to meters for distance calculation
+            val radiusInMeters = radiusInKm * 1000
 
             for (restaurant in allRestaurants) {
                 val location = restaurant.location
@@ -46,7 +58,7 @@ class RestaurantQueryable {
                     val restaurantLongitude = it.longitude
                     val distance = calculateDistance(latitude, longitude, restaurantLatitude, restaurantLongitude)
                     restaurant.distance = distance
-                    if (distance <= 20000) { // 5 km radius for example, TODO: add this as param
+                    if (distance <= radiusInMeters) {
                         restaurants.add(restaurant)
                     }
                 }
@@ -112,4 +124,3 @@ class RestaurantQueryable {
         }
     }
 }
-

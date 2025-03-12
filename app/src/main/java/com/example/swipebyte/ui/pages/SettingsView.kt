@@ -59,9 +59,9 @@ fun SettingsView(navController: NavController, authViewModel: AuthViewModel) {
         )
 
         SettingsItem(
-            title = "Privacy",
-            icon = Icons.Default.Lock,
-            onClick = { /* Handle click */ }
+            title = "Location",
+            icon = Icons.Default.LocationOn,
+            onClick = { navController.navigate(Screen.Location.route) }
         )
 
         // Log out option

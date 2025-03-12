@@ -677,6 +677,9 @@ fun EnhancedRestaurantCard(
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView(navController: NavController) {
+    // Get context for accessing SharedPreferences
+    val context = LocalContext.current
+
     // Initialize RestaurantRepository
     val restaurantRepo = RestaurantRepository()
 
@@ -729,7 +732,9 @@ fun HomeView(navController: NavController) {
         try {
             // Call fetchRestaurants() to get data from RestaurantRepository
             val fetchedRestaurants = RestaurantQueryable.filterNearbyRestaurants(
-                restaurantRepo.getRestaurants())
+                restaurantRepo.getRestaurants(),
+                context  // Pass the context to access shared preferences
+            )
             // Update the list of restaurants
             restaurantList.clear()
             restaurantList.addAll(fetchedRestaurants.toMutableList())

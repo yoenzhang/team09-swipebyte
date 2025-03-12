@@ -21,6 +21,7 @@ import com.example.swipebyte.ui.pages.CommunityFavouritesView
 import com.example.swipebyte.ui.pages.DealsOfTheDayView
 import com.example.swipebyte.ui.pages.FriendRequestView
 import com.example.swipebyte.ui.pages.HomeView
+import com.example.swipebyte.ui.pages.LocationView
 import com.example.swipebyte.ui.pages.LoginScreen
 import com.example.swipebyte.ui.pages.ProfileView
 import com.example.swipebyte.ui.pages.SettingsView
@@ -35,6 +36,7 @@ sealed class Screen(val route: String, val title: String, @DrawableRes val icon:
     object SignUp: Screen("signup", "SignUp")
     object Home : Screen("home", "Home", R.drawable.foodicon)
     object Settings : Screen("settings", "Settings")
+    object Location : Screen("location", "Location")
     object DealsOfTheDay : Screen("dealsOfTheDay", "Deals", R.drawable.heartcheck)
     object CommunityFavourites : Screen("communityFavourites", "Community", R.drawable.star)
     object Profile : Screen("profile", "Profile", R.drawable.profile)
@@ -63,6 +65,9 @@ fun AppNavigation(authViewModel: AuthViewModel, friendViewModel: FriendViewModel
                 composable(Screen.Home.route) { HomeView(navController) }
                 composable(Screen.Settings.route) {
                     SettingsView(navController, authViewModel)
+                }
+                composable(Screen.Location.route) {
+                    LocationView(navController)
                 }
                 composable(Screen.DealsOfTheDay.route) { DealsOfTheDayView(navController) }
                 composable(Screen.CommunityFavourites.route) { CommunityFavouritesView(navController) }
@@ -129,6 +134,3 @@ fun BottomNavigationBar(navController: NavController) {
         }
     }
 }
-
-
-
