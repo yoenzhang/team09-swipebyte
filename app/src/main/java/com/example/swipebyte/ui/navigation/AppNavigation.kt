@@ -20,6 +20,7 @@ import com.example.swipebyte.ui.pages.DealsOfTheDayView
 import com.example.swipebyte.ui.pages.HomeView
 import com.example.swipebyte.ui.pages.LoginScreen
 import com.example.swipebyte.ui.pages.ProfileView
+import com.example.swipebyte.ui.pages.SettingsView
 import com.example.swipebyte.ui.pages.SignUpScreen
 import com.example.swipebyte.ui.theme.SwipeByteTheme
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
@@ -29,6 +30,7 @@ sealed class Screen(val route: String, val title: String, @DrawableRes val icon:
     object Login : Screen("login", "Login")
     object SignUp: Screen("signup", "SignUp")
     object Home : Screen("home", "Home", R.drawable.foodicon)
+    object Settings : Screen("settings", "Settings")
     object DealsOfTheDay : Screen("dealsOfTheDay", "Deals", R.drawable.heartcheck)
     object CommunityFavourites : Screen("communityFavourites", "Community", R.drawable.star)
     object Profile : Screen("profile", "Profile", R.drawable.profile)
@@ -55,6 +57,9 @@ fun AppNavigation(authViewModel: AuthViewModel) {
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(Screen.Home.route) { HomeView(navController) }
+                composable(Screen.Settings.route) {
+                    SettingsView(navController, authViewModel)
+                }
                 composable(Screen.DealsOfTheDay.route) { DealsOfTheDayView(navController) }
                 composable(Screen.CommunityFavourites.route) { CommunityFavouritesView(navController) }
                 composable(Screen.Profile.route) { ProfileView(navController, authViewModel)}

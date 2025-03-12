@@ -65,6 +65,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import com.example.swipebyte.R
 import com.example.swipebyte.ui.data.models.YelpHours
+import com.example.swipebyte.ui.navigation.Screen
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -792,6 +793,18 @@ fun HomeView(navController: NavController) {
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
+                // Settings button - Added this part
+                IconButton(
+                    onClick = { navController.navigate(Screen.Settings.route) },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
 
