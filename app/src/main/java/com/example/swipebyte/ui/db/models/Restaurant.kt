@@ -78,49 +78,5 @@ class RestaurantQueryable {
             val c = 2 * atan2(sqrt(a), sqrt(1 - a))
             return r * c  // Returns the distance in kilometers
         }
-
-        suspend fun insertData() {
-            val db = FirebaseFirestore.getInstance()
-            val restaurantCollection = db.collection("restaurants")
-
-            try {
-                // Fetch all existing users
-                val existingRestaurants = restaurantCollection.get().await()
-                    .documents.mapNotNull { it.getString("name") }.toSet()
-
-                val newRestaurants = restaurantList.filter { it.name !in existingRestaurants }
-
-                // Insert new users
-                newRestaurants.forEach { restaurant ->
-                    restaurantCollection.add(restaurant).await()
-                    println("Inserted: ${restaurant.name}")
-                }
-
-                println("All restaurants processed!")
-            } catch (e: Exception) {
-                println("Error: $e")
-            }
-        }
-
-        suspend fun fetchRestaurants(): List<Restaurant> {
-            val db = FirebaseFirestore.getInstance()
-            val collectionRef = db.collection("restaurants")
-            val restaurants = mutableListOf<Restaurant>()
-
-            return try {
-                // Fetch all documents from the "restaurants" collection
-                val querySnapshot = collectionRef.get().await()
-
-                for (document in querySnapshot) {
-                    val restaurant = document.toObject(Restaurant::class.java)
-                    restaurant.let { restaurants.add(it) }
-                }
-
-                restaurants // Return the populated list
-            } catch (e: Exception) {
-                println("Error fetching restaurants: $e")
-                emptyList() // Return an empty list if fetching fails
-            }
-        }
     }
 }

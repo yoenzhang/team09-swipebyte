@@ -6,6 +6,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.example.swipebyte.ui.data.models.UserQueryable
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 
 class AuthViewModel : ViewModel() {
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -78,7 +79,7 @@ class AuthViewModel : ViewModel() {
                     _currentUserId.value = firebaseAuth.currentUser?.uid  // Set user ID on signup
 
                     // Update the display name in Firebase Auth
-                    val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                    val profileUpdates = UserProfileChangeRequest.Builder()
                         .setDisplayName(name)
                         .build()
 
@@ -101,10 +102,62 @@ class AuthViewModel : ViewModel() {
                 }
             }
     }
-    // Optionally handle logout
+
+    // Logout function
     fun logout() {
         firebaseAuth.signOut()
         _isLoggedIn.value = false
         _currentUserId.value = null  // Clear user ID on logout
+    }
+
+    // Get current user
+    fun getCurrentUser() = firebaseAuth.currentUser
+
+    // Update display name
+    fun updateDisplayName(newDisplayName: String, callback: (Boolean, String?) -> Unit) {
+        val user = firebaseAuth.currentUser
+        if (user == null) {
+            Log.e("AuthViewModel", "Update display name failed: No user is signed in")
+            callback(false, "No user is signed in")
+            return
+        }
+
+        val profileUpdates = UserProfileChangeRequest.Builder()
+            .setDisplayName(newDisplayName)
+            .build()
+
+        user.updateProfile(profileUpdates)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Log.d("AuthViewModel", "Display name updated successfully to: $newDisplayName")
+                    // Update the display name in Firestore too
+                    UserQueryable.saveUserDataToFirestore(newDisplayName)
+                    callback(true, null)
+                } else {
+                    Log.e("AuthViewModel", "Failed to update display name: ${task.exception?.message}")
+                    callback(false, task.exception?.message)
+                }
+            }
+    }
+
+    // Update password
+    fun updatePassword(newPassword: String, callback: (Boolean, String?) -> Unit) {
+        val user = firebaseAuth.currentUser
+        if (user == null) {
+            Log.e("AuthViewModel", "Update password failed: No user is signed in")
+            callback(false, "No user is signed in")
+            return
+        }
+
+        user.updatePassword(newPassword)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Log.d("AuthViewModel", "Password updated successfully")
+                    callback(true, null)
+                } else {
+                    Log.e("AuthViewModel", "Failed to update password: ${task.exception?.message}")
+                    callback(false, task.exception?.message ?: "Password update failed")
+                }
+            }
     }
 }
