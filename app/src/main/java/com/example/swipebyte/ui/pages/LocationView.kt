@@ -4,7 +4,10 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
 import android.location.LocationManager
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,27 +20,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import com.example.swipebyte.ui.data.models.UserQueryable
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.MapView
-import com.google.android.gms.maps.model.CircleOptions
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MarkerOptions
 import com.google.firebase.firestore.GeoPoint
-import com.google.maps.android.ktx.awaitMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 @SuppressLint("MissingPermission")
@@ -47,19 +44,18 @@ fun LocationView(navController: NavController) {
     var latitude by remember { mutableStateOf(43.6532) } // Default to Toronto
     var longitude by remember { mutableStateOf(-79.3832) }
 
+    // State for marker position
+    var markerX by remember { mutableStateOf(0f) }
+    var markerY by remember { mutableStateOf(0f) }
+
     // State for filter radius (in km)
     var radius by remember { mutableStateOf(5.0) }
 
     // State for loading
     var isLoading by remember { mutableStateOf(true) }
-    var mapReady by remember { mutableStateOf(false) }
 
     // Get context for location services
     val context = LocalContext.current
-
-    // Remember map view
-    var mapView: MapView? = null
-    var googleMap: GoogleMap? = null
 
     // Coroutine scope
     val scope = rememberCoroutineScope()
@@ -117,7 +113,7 @@ fun LocationView(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Map container
+        // Simplified Map container
         if (isLoading) {
             Box(
                 modifier = Modifier
@@ -137,126 +133,103 @@ fun LocationView(navController: NavController) {
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Map view
-                    AndroidView(
-                        factory = { ctx ->
-                            MapView(ctx).apply {
-                                mapView = this
-                                onCreate(null)
-                                getMapAsync { map ->
-                                    googleMap = map
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFFE5E5E5))
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                markerX += dragAmount.x
+                                markerY += dragAmount.y
 
-                                    // Initial setup
-                                    val initialPosition = LatLng(latitude, longitude)
-                                    map.moveCamera(CameraUpdateFactory.newLatLngZoom(initialPosition, 14f))
-
-                                    // Add marker for user location
-                                    map.addMarker(
-                                        MarkerOptions()
-                                            .position(initialPosition)
-                                            .title("Your Location")
-                                            .draggable(true)
-                                    )
-
-                                    // Add circle for radius
-                                    map.addCircle(
-                                        CircleOptions()
-                                            .center(initialPosition)
-                                            .radius(radius * 1000) // Convert km to meters
-                                            .strokeWidth(2f)
-                                            .strokeColor(0x55E53935)
-                                            .fillColor(0x22E53935)
-                                    )
-
-                                    // Handle marker drag events
-                                    map.setOnMarkerDragListener(object : GoogleMap.OnMarkerDragListener {
-                                        override fun onMarkerDragStart(p0: com.google.android.gms.maps.model.Marker) {}
-
-                                        override fun onMarkerDrag(p0: com.google.android.gms.maps.model.Marker) {}
-
-                                        override fun onMarkerDragEnd(marker: com.google.android.gms.maps.model.Marker) {
-                                            // Update position
-                                            latitude = marker.position.latitude
-                                            longitude = marker.position.longitude
-
-                                            // Update circle
-                                            map.clear()
-                                            map.addMarker(
-                                                MarkerOptions()
-                                                    .position(marker.position)
-                                                    .title("Your Location")
-                                                    .draggable(true)
-                                            )
-                                            map.addCircle(
-                                                CircleOptions()
-                                                    .center(marker.position)
-                                                    .radius(radius * 1000) // Convert km to meters
-                                                    .strokeWidth(2f)
-                                                    .strokeColor(0x55E53935)
-                                                    .fillColor(0x22E53935)
-                                            )
-                                        }
-                                    })
-
-                                    // Handle map click events
-                                    map.setOnMapClickListener { latLng ->
-                                        // Update position
-                                        latitude = latLng.latitude
-                                        longitude = latLng.longitude
-
-                                        // Update marker and circle
-                                        map.clear()
-                                        map.addMarker(
-                                            MarkerOptions()
-                                                .position(latLng)
-                                                .title("Your Location")
-                                                .draggable(true)
-                                        )
-                                        map.addCircle(
-                                            CircleOptions()
-                                                .center(latLng)
-                                                .radius(radius * 1000) // Convert km to meters
-                                                .strokeWidth(2f)
-                                                .strokeColor(0x55E53935)
-                                                .fillColor(0x22E53935)
-                                        )
-                                    }
-
-                                    mapReady = true
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        update = { view ->
-                            // Update map view lifecycle
-                            mapView?.onResume()
-
-                            // Update circle if radius changes
-                            if (mapReady && googleMap != null) {
-                                val map = googleMap!!
-                                val position = LatLng(latitude, longitude)
-
-                                map.clear()
-                                map.addMarker(
-                                    MarkerOptions()
-                                        .position(position)
-                                        .title("Your Location")
-                                        .draggable(true)
-                                )
-                                map.addCircle(
-                                    CircleOptions()
-                                        .center(position)
-                                        .radius(radius * 1000) // Convert km to meters
-                                        .strokeWidth(2f)
-                                        .strokeColor(0x55E53935)
-                                        .fillColor(0x22E53935)
-                                )
+                                // Simulate changing latitude/longitude
+                                // In a real map, you'd use proper conversion
+                                // This is just a simulation for UI purposes
+                                latitude += dragAmount.y * -0.0001
+                                longitude += dragAmount.x * 0.0001
                             }
                         }
-                    )
+                ) {
+                    // Draw a grid pattern for map simulation
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val gridSpacing = 50f
+                        val lightGray = Color(0xFFD0D0D0)
 
-                    // My location button
+                        // Draw horizontal grid lines
+                        for (y in 0..(size.height / gridSpacing).toInt()) {
+                            drawLine(
+                                color = lightGray,
+                                start = Offset(0f, y * gridSpacing),
+                                end = Offset(size.width, y * gridSpacing),
+                                strokeWidth = 1f
+                            )
+                        }
+
+                        // Draw vertical grid lines
+                        for (x in 0..(size.width / gridSpacing).toInt()) {
+                            drawLine(
+                                color = lightGray,
+                                start = Offset(x * gridSpacing, 0f),
+                                end = Offset(x * gridSpacing, size.height),
+                                strokeWidth = 1f
+                            )
+                        }
+
+                        // Draw radius circle
+                        drawCircle(
+                            color = Color(0x33E53935),
+                            center = center + Offset(markerX, markerY),
+                            radius = 100f * (radius / 5f).toFloat(),
+                            style = Stroke(width = 2f)
+                        )
+
+                        // Draw radius fill
+                        drawCircle(
+                            color = Color(0x11E53935),
+                            center = center + Offset(markerX, markerY),
+                            radius = 100f * (radius / 5f).toFloat()
+                        )
+                    }
+
+                    // Location marker
+                    Box(
+                        modifier = Modifier
+                            .offset(
+                                x = with(LocalDensity.current) { ((size.width / 2) + markerX).toDp() },
+                                y = with(LocalDensity.current) { ((size.height / 2) + markerY).toDp() }
+                            )
+                            .size(48.dp)
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = "Location",
+                            tint = Color(0xFFE53935),
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    // Location info
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 16.dp)
+                    ) {
+                        Card(
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                        ) {
+                            Text(
+                                text = "Lat: ${String.format("%.4f", latitude)}, Lng: ${String.format("%.4f", longitude)}",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    // "My Location" button
                     FloatingActionButton(
                         onClick = {
                             val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -265,28 +238,8 @@ fun LocationView(navController: NavController) {
                                 if (lastKnownLocation != null) {
                                     latitude = lastKnownLocation.latitude
                                     longitude = lastKnownLocation.longitude
-
-                                    // Update map
-                                    googleMap?.let { map ->
-                                        val position = LatLng(latitude, longitude)
-                                        map.animateCamera(CameraUpdateFactory.newLatLngZoom(position, 14f))
-
-                                        map.clear()
-                                        map.addMarker(
-                                            MarkerOptions()
-                                                .position(position)
-                                                .title("Your Location")
-                                                .draggable(true)
-                                        )
-                                        map.addCircle(
-                                            CircleOptions()
-                                                .center(position)
-                                                .radius(radius * 1000) // Convert km to meters
-                                                .strokeWidth(2f)
-                                                .strokeColor(0x55E53935)
-                                                .fillColor(0x22E53935)
-                                        )
-                                    }
+                                    markerX = 0f // Reset marker to center
+                                    markerY = 0f
                                 }
                             } catch (e: Exception) {
                                 // Handle location error
@@ -371,7 +324,7 @@ fun LocationView(navController: NavController) {
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Text(
-                    text = "Tap anywhere on the map to set your location or drag the marker. Adjust the radius slider to set how far you want to search for restaurants.",
+                    text = "Drag the marker on the map to set your location. Adjust the radius slider to set how far you want to search for restaurants.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.DarkGray
                 )
@@ -420,14 +373,6 @@ fun LocationView(navController: NavController) {
             ) {
                 Text("Save Location")
             }
-        }
-    }
-
-    // Cleanup map resources
-    DisposableEffect(Unit) {
-        onDispose {
-            mapView?.onPause()
-            mapView?.onDestroy()
         }
     }
 }
