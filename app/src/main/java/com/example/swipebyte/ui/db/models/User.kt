@@ -12,6 +12,7 @@ data class User(
     val createdAt: Long = System.currentTimeMillis(),
     val lastLogin: Long = System.currentTimeMillis(),
     val cuisinePreferences: List<String> = emptyList(),
+    val pricePreferences: List<String> = emptyList(),
     val location: GeoPoint = GeoPoint(0.0, 0.0)
 )
 
@@ -32,18 +33,33 @@ class UserQueryable {
                     user.displayName ?: ""
                 }
 
+                // Only update fields we actually want to change
                 val userData = mapOf(
                     "displayName" to effectiveDisplayName,
                     "email" to (user.email ?: ""),
-                    "createdAt" to System.currentTimeMillis(),
-                    "lastLogin" to System.currentTimeMillis(),
-                    "cuisinePreferences" to emptyList<String>(),
-                    "location" to GeoPoint(0.0, 0.0)
+                    "lastLogin" to System.currentTimeMillis()
                 )
 
-                userRef.set(userData, SetOptions.merge())
-                    .addOnSuccessListener { println("User data saved successfully!") }
-                    .addOnFailureListener { e -> println("Error saving user data: ${e.message}") }
+                // For new users, add these default fields
+                userRef.get().addOnSuccessListener { document ->
+                    if (!document.exists()) {
+                        // This is a new user, set default values for preferences
+                        val newUserData = userData + mapOf(
+                            "createdAt" to System.currentTimeMillis(),
+                            "cuisinePreferences" to emptyList<String>(),
+                            "pricePreferences" to emptyList<String>(),
+                            "location" to GeoPoint(0.0, 0.0)
+                        )
+                        userRef.set(newUserData)
+                            .addOnSuccessListener { println("New user data saved successfully!") }
+                            .addOnFailureListener { e -> println("Error saving new user data: ${e.message}") }
+                    } else {
+                        // Existing user, just update the fields we want to change
+                        userRef.set(userData, SetOptions.merge())
+                            .addOnSuccessListener { println("User data updated successfully!") }
+                            .addOnFailureListener { e -> println("Error updating user data: ${e.message}") }
+                    }
+                }
             } ?: println("No authenticated user found")
         }
 

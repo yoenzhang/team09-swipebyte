@@ -23,11 +23,16 @@ import com.example.swipebyte.ui.pages.*
 import com.example.swipebyte.ui.theme.SwipeByteTheme
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
 import com.example.swipebyte.ui.viewmodel.FriendViewModel
+import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
+
 
 sealed class Screen(val route: String, val title: String, @DrawableRes val icon: Int? = null) {
     object Login : Screen("login", "Login")
     object SignUp : Screen("signup", "SignUp")
     object Home : Screen("home", "Home", R.drawable.foodicon)
+    object Settings : Screen("settings", "Settings")
+    object Preferences : Screen("preferences", "Preferences")
+    object Location : Screen("location", "Location")
     object DealsOfTheDay : Screen("dealsOfTheDay", "Deals", R.drawable.heartcheck)
     object CommunityFavourites : Screen("communityFavourites", "Community", R.drawable.star)
     object ProfileSettings : Screen("profileSettings", "Profile", R.drawable.profile)
@@ -36,12 +41,15 @@ sealed class Screen(val route: String, val title: String, @DrawableRes val icon:
 }
 
 @Composable
+fun AppNavigation(authViewModel: AuthViewModel, friendViewModel: FriendViewModel, preferencesViewModel: PreferencesViewModel, userId: LiveData<String?>) {
 fun AppNavigation(
     authViewModel: AuthViewModel,
     friendViewModel: FriendViewModel,
     userId: LiveData<String?>  // The user’s Firestore userId
 ) {
     val navController = rememberNavController()
+
+    // Observe login status from ViewModel
     val isLoggedIn by authViewModel.isLoggedIn.observeAsState(false)
 
     SwipeByteTheme {
@@ -57,6 +65,19 @@ fun AppNavigation(
                 startDestination = if (isLoggedIn) Screen.Home.route else Screen.Login.route,
                 modifier = Modifier.padding(innerPadding)
             ) {
+                composable(Screen.Home.route) { HomeView(navController) }
+                composable(Screen.Settings.route) {
+                    SettingsView(navController, authViewModel)
+                }
+                composable(Screen.Location.route) {
+                    LocationView(navController)
+                }
+                composable(Screen.Preferences.route) {
+                    PreferencesView(navController, preferencesViewModel)
+                }
+                composable(Screen.DealsOfTheDay.route) { DealsOfTheDayView(navController) }
+                composable(Screen.CommunityFavourites.route) { CommunityFavouritesView(navController) }
+                composable(Screen.Profile.route) { ProfileView(navController, authViewModel) }
                 composable(Screen.Home.route) {
                     HomeView(navController)
                 }
@@ -86,6 +107,8 @@ fun AppNavigation(
                     userIdVal?.let { id ->
                         FriendRequestView(navController, id)
                     } ?: run {
+                        // Handle the case where userId is null (you can show a loading screen or error)
+                        // For example, you can log an error or show a fallback UI
                         Log.e("AppNavigation", "User ID is null in FriendRequests screen")
                     }
                 }
