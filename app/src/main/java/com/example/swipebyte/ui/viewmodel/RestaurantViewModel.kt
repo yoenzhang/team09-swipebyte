@@ -1,11 +1,13 @@
 package com.example.swipebyte.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.data.repository.RestaurantRepository
 import com.example.swipebyte.ui.data.models.Restaurant
+import com.example.swipebyte.ui.data.models.RestaurantQueryable
 import kotlinx.coroutines.launch
 
 class RestaurantViewModel : ViewModel() {
@@ -20,18 +22,26 @@ class RestaurantViewModel : ViewModel() {
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
 
-    // The loadRestaurants now passes the forceRefresh parameter to the repository.
-    fun loadRestaurants(forceRefresh: Boolean = false) {
+    // Updated to incorporate context for location-based filtering
+    fun loadRestaurants(context: Context, forceRefresh: Boolean = false) {
         _error.value = null
         _isLoading.value = true
 
         viewModelScope.launch {
             try {
-                val data = repository.getRestaurants(forceRefresh)
-                _restaurants.value = data
+                // First get all restaurants
+                val allRestaurants = repository.getRestaurants(forceRefresh)
 
-                if (data.isEmpty()) {
-                    _error.value = "No restaurants found"
+                // Then filter by location
+                val filteredRestaurants = RestaurantQueryable.filterNearbyRestaurants(
+                    allRestaurants,
+                    context
+                )
+
+                _restaurants.value = filteredRestaurants
+
+                if (filteredRestaurants.isEmpty()) {
+                    _error.value = "No restaurants found nearby"
                 }
             } catch (e: Exception) {
                 _error.value = e.localizedMessage ?: "An unknown error occurred"
@@ -42,7 +52,7 @@ class RestaurantViewModel : ViewModel() {
         }
     }
 
-    fun retryLoadRestaurants() {
-        loadRestaurants(forceRefresh = true)
+    fun retryLoadRestaurants(context: Context) {
+        loadRestaurants(context, forceRefresh = true)
     }
 }
