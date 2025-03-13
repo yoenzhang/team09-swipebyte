@@ -56,9 +56,16 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.swipebyte.R
 import com.example.swipebyte.ui.data.models.SwipeQueryable
 import com.example.swipebyte.ui.data.models.YelpHours
+import com.example.swipebyte.ui.navigation.Screen
+import com.example.swipebyte.ui.viewmodel.RestaurantViewModel
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -676,14 +683,19 @@ fun EnhancedRestaurantCard(
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView(navController: NavController) {
-    // Initialize RestaurantRepository
-    val restaurantRepo = RestaurantRepository()
+    // Get context for accessing SharedPreferences
+    val context = LocalContext.current
 
-    // State for the list of restaurants
+    // Create an instance of RestaurantViewModel
+    val restaurantViewModel = viewModel<RestaurantViewModel>()
+
+    // Observe restaurants from ViewModel
+    val restaurants by restaurantViewModel.restaurants.observeAsState(emptyList())
+    val isLoading by restaurantViewModel.isLoading.observeAsState(true)
+    val error by restaurantViewModel.error.observeAsState(null)
+
+    // State for the list of restaurants (using local copy for swipe functionality)
     val restaurantList = remember { mutableStateListOf<Restaurant>() }
-
-    // Loading state for when data is being fetched
-    var isLoading by remember { mutableStateOf(true) }
 
     // Current restaurant index
     var currentIndex by remember { mutableStateOf(0) }
@@ -723,24 +735,31 @@ fun HomeView(navController: NavController) {
         }
     }
 
-    // Fetch data once when the composable is first launched
+    // Load restaurants data when the composable is first launched
     LaunchedEffect(Unit) {
-        try {
-            // Call fetchRestaurants() to get data from RestaurantRepository
-            val fetchedRestaurants = RestaurantQueryable.filterNearbyRestaurants(
-                restaurantRepo.getRestaurants())
-            // Update the list of restaurants
-            restaurantList.clear()
-            restaurantList.addAll(fetchedRestaurants.toMutableList())
-        } catch (e: Exception) {
-            // Handle errors if fetching data fails
-            Log.e("HomeView", "Error fetching restaurants: ${e.message}")
-        } finally {
-            // Set loading state to false after fetching is complete
-            isLoading = false
-        }
+        // Load restaurants with location-based filtering
+        restaurantViewModel.loadRestaurants(context)
     }
 
+    // Update local restaurant list when ViewModel data changes
+    LaunchedEffect(restaurants) {
+        restaurantList.clear()
+        restaurantList.addAll(restaurants)
+    }
+
+    // Refresh restaurants when returning to HomeView from LocationView
+    DisposableEffect(navController) {
+        val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
+            if (destination.route == Screen.Home.route) {
+                // Check if we're returning from the location screen
+                restaurantViewModel.loadRestaurants(context)
+            }
+        }
+        navController.addOnDestinationChangedListener(listener)
+        onDispose {
+            navController.removeOnDestinationChangedListener(listener)
+        }
+    }
     Column(modifier = Modifier.fillMaxSize()) {
         // Improved top app bar with SwipeByte
         Box(
@@ -787,6 +806,18 @@ fun HomeView(navController: NavController) {
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
+                // Settings button - Added this part
+                IconButton(
+                    onClick = { navController.navigate(Screen.Settings.route) },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
 
@@ -800,7 +831,7 @@ fun HomeView(navController: NavController) {
             } else if (restaurantList.isEmpty()) {
                 // Show empty state when no restaurants are available
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No restaurants found nearby")
+                    Text("No restaurants found nearby.")
                 }
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
