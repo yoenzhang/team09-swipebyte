@@ -23,12 +23,14 @@ import com.example.swipebyte.ui.pages.FriendRequestView
 import com.example.swipebyte.ui.pages.HomeView
 import com.example.swipebyte.ui.pages.LocationView
 import com.example.swipebyte.ui.pages.LoginScreen
+import com.example.swipebyte.ui.pages.PreferencesView
 import com.example.swipebyte.ui.pages.ProfileView
 import com.example.swipebyte.ui.pages.SettingsView
 import com.example.swipebyte.ui.pages.SignUpScreen
 import com.example.swipebyte.ui.theme.SwipeByteTheme
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
 import com.example.swipebyte.ui.viewmodel.FriendViewModel
+import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
 
 
 sealed class Screen(val route: String, val title: String, @DrawableRes val icon: Int? = null) {
@@ -36,6 +38,7 @@ sealed class Screen(val route: String, val title: String, @DrawableRes val icon:
     object SignUp: Screen("signup", "SignUp")
     object Home : Screen("home", "Home", R.drawable.foodicon)
     object Settings : Screen("settings", "Settings")
+    object Preferences : Screen("preferences", "Preferences")
     object Location : Screen("location", "Location")
     object DealsOfTheDay : Screen("dealsOfTheDay", "Deals", R.drawable.heartcheck)
     object CommunityFavourites : Screen("communityFavourites", "Community", R.drawable.star)
@@ -43,7 +46,7 @@ sealed class Screen(val route: String, val title: String, @DrawableRes val icon:
     object FriendRequests : Screen("friendRequests", "Friend Requests")
 }
 @Composable
-fun AppNavigation(authViewModel: AuthViewModel, friendViewModel: FriendViewModel, userId: LiveData<String?>) {
+fun AppNavigation(authViewModel: AuthViewModel, friendViewModel: FriendViewModel, preferencesViewModel: PreferencesViewModel, userId: LiveData<String?>) {
     val navController = rememberNavController()
 
     // Observe login status from ViewModel
@@ -68,6 +71,9 @@ fun AppNavigation(authViewModel: AuthViewModel, friendViewModel: FriendViewModel
                 }
                 composable(Screen.Location.route) {
                     LocationView(navController)
+                }
+                composable(Screen.Preferences.route) {
+                    PreferencesView(navController, preferencesViewModel)
                 }
                 composable(Screen.DealsOfTheDay.route) { DealsOfTheDayView(navController) }
                 composable(Screen.CommunityFavourites.route) { CommunityFavouritesView(navController) }

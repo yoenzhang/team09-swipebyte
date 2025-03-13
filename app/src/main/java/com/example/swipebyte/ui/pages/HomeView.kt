@@ -818,7 +818,7 @@ fun HomeView(navController: NavController) {
             } else if (restaurantList.isEmpty()) {
                 // Show empty state when no restaurants are available
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No restaurants found nearby")
+                    Text("No restaurants found nearby.")
                 }
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {

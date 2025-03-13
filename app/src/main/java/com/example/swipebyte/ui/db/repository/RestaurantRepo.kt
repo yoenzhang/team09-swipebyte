@@ -6,6 +6,8 @@ import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.data.models.YelpBusiness
 import com.example.swipebyte.ui.data.models.YelpBusinessDetailsResponse
 import com.example.swipebyte.ui.data.models.YelpCategory
+import com.example.swipebyte.ui.data.models.User
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
@@ -32,6 +34,8 @@ interface YelpAPI {
     suspend fun getRestaurants(
         @Query("location") location: String,
         @Query("limit") limit: Int = 50,
+        @Query("price") price: String? = null, // Optional price filter
+        @Query("categories") categories: String? = null, // Optional categories filter
         @Header("Authorization") authHeader: String
     ): YelpResponse
 
@@ -58,27 +62,93 @@ class RestaurantRepository {
         firestoreSettings = settings
     }
     private val restaurantCollection = db.collection("restaurants")
+    private val usersCollection = db.collection("users")
     private val yelpApiKey = "pmie5_FVr0xgJsJyZWnmVRKF2WoTPQFH7iOaO7CUTMoQeqDlX54gvf0ql4ZbS89usMdSrExV9nbsmIXiYN7_h-RNWguknSTJ_KlwGsfaDEwnpOrssaBEwXqs_-XFZ3Yx"
 
-    // Modified getRestaurants: first try loading cached data from Firestore using Source.CACHE.
-    suspend fun getRestaurants(forceRefresh: Boolean = false): List<Restaurant> {
+    // Get current user preferences
+    private suspend fun getUserPreferences(): User? {
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return null
+
+        return try {
+            val userDoc = usersCollection.document(currentUserId).get().await()
+            userDoc.toObject(User::class.java)
+        } catch (e: Exception) {
+            Log.e("RestaurantRepo", "Error fetching user preferences: ${e.message}")
+            null
+        }
+    }
+
+    // Convert price preferences from strings (e.g., "$", "$$") to integers for Yelp API (1, 2)
+    private fun convertPricePreferencesToNumbers(pricePreferences: List<String>): List<Int> {
+        return pricePreferences.mapNotNull { price ->
+            when (price) {
+                "$" -> 1
+                "$$" -> 2
+                "$$$" -> 3
+                "$$$$" -> 4
+                else -> null
+            }
+        }
+    }
+
+    // Main function to get restaurants with user preferences
+    suspend fun getRestaurants(
+        forceRefresh: Boolean = false,
+        overridePrice: List<Int> = emptyList(),
+        overrideCategories: List<String> = emptyList(),
+        useUserPreferences: Boolean = true
+    ): List<Restaurant> {
         return withContext(Dispatchers.IO) {
+            // Fetch user preferences if needed
+            val userPrefs = if (useUserPreferences) getUserPreferences() else null
+
+            // Use provided filters or fall back to user preferences
+            val priceFilters = if (overridePrice.isNotEmpty()) {
+                overridePrice
+            } else if (useUserPreferences && userPrefs?.pricePreferences?.isNotEmpty() == true) {
+                convertPricePreferencesToNumbers(userPrefs.pricePreferences)
+            } else {
+                emptyList()
+            }
+
+            val categoryFilters = if (overrideCategories.isNotEmpty()) {
+                overrideCategories
+            } else if (useUserPreferences && userPrefs?.cuisinePreferences?.isNotEmpty() == true) {
+                userPrefs.cuisinePreferences
+            } else {
+                emptyList()
+            }
+
+            // Get user location or default to Toronto
+            val location = if (useUserPreferences &&
+                userPrefs?.location != null &&
+                userPrefs.location.latitude != 0.0 &&
+                userPrefs.location.longitude != 0.0) {
+                "${userPrefs.location.latitude},${userPrefs.location.longitude}"
+            } else {
+                "Toronto" // Default location
+            }
+
             if (!forceRefresh) {
                 try {
                     val cacheSnapshot = restaurantCollection.get(Source.CACHE).await()
                     if (!cacheSnapshot.isEmpty) {
                         Log.d("RestaurantRepo", "Loaded ${cacheSnapshot.size()} restaurants from cache")
-                        return@withContext cacheSnapshot.documents.mapNotNull { doc ->
+                        val restaurants = cacheSnapshot.documents.mapNotNull { doc ->
                             mapDocumentToRestaurant(doc)
                         }
+
+                        // Apply filters to cached results
+                        return@withContext filterRestaurants(restaurants, priceFilters, categoryFilters)
                     }
                 } catch (e: Exception) {
                     Log.e("RestaurantRepo", "Error fetching from cache: ${e.message}")
                 }
             }
+
             // Either forceRefresh is true or cache is empty – fetch from Yelp.
             try {
-                val yelpRestaurants = fetchFromYelp()
+                val yelpRestaurants = fetchFromYelp(priceFilters, categoryFilters, location)
                 val detailRestaurants = yelpRestaurants.map { restaurant ->
                     async {
                         fetchBusinessDetailsOptimized(restaurant)
@@ -92,9 +162,11 @@ class RestaurantRepository {
                 // Fallback to Firestore SERVER if Yelp fails
                 try {
                     val snapshot = restaurantCollection.get(Source.SERVER).await()
-                    snapshot.documents.mapNotNull { doc ->
+                    val restaurants = snapshot.documents.mapNotNull { doc ->
                         mapDocumentToRestaurant(doc)
                     }
+                    // Apply filters to server results
+                    filterRestaurants(restaurants, priceFilters, categoryFilters)
                 } catch (fallbackE: Exception) {
                     Log.e("RestaurantRepo", "Error fetching from Firestore fallback: ${fallbackE.message}")
                     emptyList()
@@ -103,8 +175,53 @@ class RestaurantRepository {
         }
     }
 
-    private suspend fun fetchFromYelp(): List<Restaurant> {
-        val response = yelpAPI.getRestaurants("Toronto", authHeader = "Bearer $yelpApiKey")
+    // Filter restaurants based on price and categories
+    private fun filterRestaurants(
+        restaurants: List<Restaurant>,
+        priceFilters: List<Int>,
+        categoryFilters: List<String>
+    ): List<Restaurant> {
+        var filtered = restaurants
+
+        // Apply price filters if any
+        if (priceFilters.isNotEmpty()) {
+            filtered = filtered.filter { restaurant ->
+                val dollarSignCount = restaurant.priceRange?.count { it == '$' }
+                priceFilters.contains(dollarSignCount)
+            }
+        }
+
+        // Apply category filters if any
+        if (categoryFilters.isNotEmpty()) {
+            filtered = filtered.filter { restaurant ->
+                restaurant.cuisineType.any { cuisine ->
+                    categoryFilters.any { category ->
+                        cuisine.contains(category, ignoreCase = true)
+                    }
+                }
+            }
+        }
+
+        return filtered
+    }
+
+    private suspend fun fetchFromYelp(
+        price: List<Int>,
+        categories: List<String>,
+        location: String
+    ): List<Restaurant> {
+        // Convert the price list into a comma-separated string if it's not empty.
+        val priceFilter = if (price.isNotEmpty()) price.joinToString(",") else null
+        // Convert the categories list into a comma-separated string if it's not empty.
+        val categoriesFilter = if (categories.isNotEmpty()) categories.joinToString(",") else null
+
+        val response = yelpAPI.getRestaurants(
+            location = location,
+            authHeader = "Bearer $yelpApiKey",
+            price = priceFilter,
+            categories = categoriesFilter
+        )
+
         return response.businesses.map { business ->
             Restaurant(
                 id = business.id,
@@ -167,7 +284,7 @@ class RestaurantRepository {
         }
     }
 
-    // New: Realtime updates using snapshot listener via Kotlin Flow.
+    // Realtime updates using snapshot listener via Kotlin Flow.
     fun getRestaurantsRealtime() = callbackFlow<List<Restaurant>> {
         val registration = restaurantCollection.addSnapshotListener { snapshot, error ->
             if (error != null) {
