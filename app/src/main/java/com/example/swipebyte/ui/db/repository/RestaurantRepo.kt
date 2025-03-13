@@ -1,5 +1,6 @@
 package com.example.swipebyte.data.repository
 
+import android.content.Context
 import android.util.Log
 import com.example.swipebyte.ui.data.models.YelpResponse
 import com.example.swipebyte.ui.data.models.Restaurant
@@ -91,16 +92,51 @@ class RestaurantRepository {
         }
     }
 
-    // Main function to get restaurants with user preferences
+    // Calculate distance between two points using Haversine formula
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val earthRadius = 6371.0 // Earth's radius in kilometers
+
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+        return earthRadius * c
+    }
+
+    // Main function to get restaurants with user preferences and distance filter
     suspend fun getRestaurants(
         forceRefresh: Boolean = false,
         overridePrice: List<Int> = emptyList(),
         overrideCategories: List<String> = emptyList(),
-        useUserPreferences: Boolean = true
+        useUserPreferences: Boolean = true,
+        maxDistance: Double? = null, // New parameter for distance filtering
+        context: Context? = null
     ): List<Restaurant> {
         return withContext(Dispatchers.IO) {
             // Fetch user preferences if needed
             val userPrefs = if (useUserPreferences) getUserPreferences() else null
+
+            // Get user location
+            val userLocation = userPrefs?.location
+            val userLatitude = userLocation?.latitude ?: 0.0
+            val userLongitude = userLocation?.longitude ?: 0.0
+
+            // Get max distance from parameter or preferences
+            val effectiveMaxDistance = maxDistance ?: run {
+                if (context != null) {
+                    val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
+                    sharedPrefs.getFloat("location_radius", 5.0f).toDouble()
+                } else {
+                    5.0 // Default radius if context not available
+                }
+            }
+
+            Log.d("RestaurantRepo", "Getting restaurants with distance filter: $effectiveMaxDistance km")
 
             // Use provided filters or fall back to user preferences
             val priceFilters = if (overridePrice.isNotEmpty()) {
@@ -138,8 +174,18 @@ class RestaurantRepository {
                             mapDocumentToRestaurant(doc)
                         }
 
-                        // Apply filters to cached results
-                        return@withContext filterRestaurants(restaurants, priceFilters, categoryFilters)
+                        // Apply filters including distance filter
+                        val filteredRestaurants = filterRestaurants(
+                            restaurants,
+                            priceFilters,
+                            categoryFilters,
+                            userLatitude,
+                            userLongitude,
+                            effectiveMaxDistance
+                        )
+
+                        Log.d("RestaurantRepo", "Filtered to ${filteredRestaurants.size} restaurants within ${effectiveMaxDistance}km")
+                        return@withContext filteredRestaurants
                     }
                 } catch (e: Exception) {
                     Log.e("RestaurantRepo", "Error fetching from cache: ${e.message}")
@@ -149,14 +195,41 @@ class RestaurantRepository {
             // Either forceRefresh is true or cache is empty – fetch from Yelp.
             try {
                 val yelpRestaurants = fetchFromYelp(priceFilters, categoryFilters, location)
+
+                // Calculate and set distance for each restaurant
+                yelpRestaurants.forEach { restaurant ->
+                    if (userLatitude != 0.0 && userLongitude != 0.0) {
+                        val distance = calculateDistance(
+                            userLatitude,
+                            userLongitude,
+                            restaurant.location.latitude,
+                            restaurant.location.longitude
+                        )
+                        restaurant.distance = distance
+                    }
+                }
+
                 val detailRestaurants = yelpRestaurants.map { restaurant ->
                     async {
                         fetchBusinessDetailsOptimized(restaurant)
                     }
                 }.awaitAll()
+
                 // Update Firebase asynchronously
                 storeInFirebase(detailRestaurants)
-                detailRestaurants
+
+                // Apply distance filter
+                val filteredRestaurants = if (effectiveMaxDistance > 0 && userLatitude != 0.0 && userLongitude != 0.0) {
+                    detailRestaurants.filter { restaurant ->
+                        restaurant.distance <= effectiveMaxDistance
+                    }
+                } else {
+                    detailRestaurants
+                }
+
+                Log.d("RestaurantRepo", "Retrieved ${detailRestaurants.size} restaurants, filtered to ${filteredRestaurants.size} within ${effectiveMaxDistance}km")
+                filteredRestaurants
+
             } catch (e: Exception) {
                 Log.e("RestaurantRepo", "Error fetching from Yelp: ${e.message}")
                 // Fallback to Firestore SERVER if Yelp fails
@@ -165,8 +238,15 @@ class RestaurantRepository {
                     val restaurants = snapshot.documents.mapNotNull { doc ->
                         mapDocumentToRestaurant(doc)
                     }
-                    // Apply filters to server results
-                    filterRestaurants(restaurants, priceFilters, categoryFilters)
+                    // Apply filters to server results including distance
+                    filterRestaurants(
+                        restaurants,
+                        priceFilters,
+                        categoryFilters,
+                        userLatitude,
+                        userLongitude,
+                        effectiveMaxDistance
+                    )
                 } catch (fallbackE: Exception) {
                     Log.e("RestaurantRepo", "Error fetching from Firestore fallback: ${fallbackE.message}")
                     emptyList()
@@ -175,18 +255,21 @@ class RestaurantRepository {
         }
     }
 
-    // Filter restaurants based on price and categories
+    // Filter restaurants based on price, categories, and distance
     private fun filterRestaurants(
         restaurants: List<Restaurant>,
         priceFilters: List<Int>,
-        categoryFilters: List<String>
+        categoryFilters: List<String>,
+        userLatitude: Double = 0.0,
+        userLongitude: Double = 0.0,
+        maxDistance: Double = 0.0
     ): List<Restaurant> {
         var filtered = restaurants
 
         // Apply price filters if any
         if (priceFilters.isNotEmpty()) {
             filtered = filtered.filter { restaurant ->
-                val dollarSignCount = restaurant.priceRange?.count { it == '$' }
+                val dollarSignCount = restaurant.priceRange?.count { it == '$' } ?: 0
                 priceFilters.contains(dollarSignCount)
             }
         }
@@ -199,6 +282,23 @@ class RestaurantRepository {
                         cuisine.contains(category, ignoreCase = true)
                     }
                 }
+            }
+        }
+
+        // Apply distance filter if we have user location and maxDistance
+        if (maxDistance > 0 && userLatitude != 0.0 && userLongitude != 0.0) {
+            filtered = filtered.filter { restaurant ->
+                // Calculate distance if it's not already set
+                if (restaurant.distance <= 0.0) {
+                    restaurant.distance = calculateDistance(
+                        userLatitude,
+                        userLongitude,
+                        restaurant.location.latitude,
+                        restaurant.location.longitude
+                    )
+                }
+
+                restaurant.distance <= maxDistance
             }
         }
 
@@ -317,39 +417,3 @@ class RestaurantRepository {
         }
     }
 }
-
-data class YelpResponse(
-    val businesses: List<YelpBusiness>
-)
-
-data class YelpBusiness(
-    val id: String,
-    val name: String,
-    val rating: Double,
-    val price: String?,
-    val image_url: String?,
-    val categories: List<YelpCategory>,
-    val coordinates: YelpCoordinates,
-    val location: YelpLocation?,
-    val url: String?,
-    val phone: String?,
-    val distance: Double = 0.0
-)
-
-data class YelpCategory(
-    val title: String
-)
-
-data class YelpCoordinates(
-    val latitude: Double,
-    val longitude: Double
-)
-
-data class YelpLocation(
-    val address1: String?,
-    val address2: String?,
-    val address3: String?,
-    val city: String?,
-    val state: String?,
-    val zip_code: String?
-)

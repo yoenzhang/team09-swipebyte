@@ -26,6 +26,8 @@ import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
 import android.location.LocationManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip  // Add this import
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -75,6 +77,9 @@ fun LocationView(navController: NavController) {
     // Get context for location services
     val context = LocalContext.current
 
+    // Scrolling state
+    val scrollState = rememberScrollState()
+
     // Coroutine scope
     val scope = rememberCoroutineScope()
 
@@ -118,9 +123,11 @@ fun LocationView(navController: NavController) {
         circleRadius = radius * 1000 // Convert km to meters
     }
 
+    // Main column with scrolling
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(16.dp)
     ) {
         // Top bar with back button
@@ -151,7 +158,7 @@ fun LocationView(navController: NavController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(400.dp)
-                    .clip(RoundedCornerShape(12.dp))  // Fixed
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
@@ -339,7 +346,7 @@ fun LocationView(navController: NavController) {
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Action buttons
         Row(
@@ -382,5 +389,8 @@ fun LocationView(navController: NavController) {
                 Text("Save Location")
             }
         }
+
+        // Add extra space at the bottom for better scrolling experience
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
