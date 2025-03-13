@@ -1,4 +1,4 @@
-package com.example.swipebyte.ui.navigation  // ✅ Use lowercase for "swipebyte"
+package com.example.swipebyte.ui.navigation
 
 import android.util.Log
 import androidx.annotation.DrawableRes
@@ -13,20 +13,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.LiveData
-import androidx.navigation.*
-import androidx.navigation.compose.*
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.swipebyte.R
-import com.example.swipebyte.ui.pages.CommunityFavouritesView
-import com.example.swipebyte.ui.pages.DealsOfTheDayView
-import com.example.swipebyte.ui.pages.FriendRequestView
-import com.example.swipebyte.ui.pages.HomeView
-import com.example.swipebyte.ui.pages.LocationView
-import com.example.swipebyte.ui.pages.LoginScreen
-import com.example.swipebyte.ui.pages.PreferencesView
-import com.example.swipebyte.ui.pages.ProfileView
-import com.example.swipebyte.ui.pages.SettingsView
-import com.example.swipebyte.ui.pages.SignUpScreen
+import com.example.swipebyte.ui.pages.*
 import com.example.swipebyte.ui.theme.SwipeByteTheme
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
 import com.example.swipebyte.ui.viewmodel.FriendViewModel
@@ -35,18 +28,25 @@ import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
 
 sealed class Screen(val route: String, val title: String, @DrawableRes val icon: Int? = null) {
     object Login : Screen("login", "Login")
-    object SignUp: Screen("signup", "SignUp")
+    object SignUp : Screen("signup", "SignUp")
     object Home : Screen("home", "Home", R.drawable.foodicon)
     object Settings : Screen("settings", "Settings")
     object Preferences : Screen("preferences", "Preferences")
     object Location : Screen("location", "Location")
     object DealsOfTheDay : Screen("dealsOfTheDay", "Deals", R.drawable.heartcheck)
     object CommunityFavourites : Screen("communityFavourites", "Community", R.drawable.star)
-    object Profile : Screen("profile", "Profile", R.drawable.profile)
+    object ProfileSettings : Screen("profileSettings", "Profile", R.drawable.profile)
     object FriendRequests : Screen("friendRequests", "Friend Requests")
+    object MyLikes : Screen("myLikes", "My Likes", R.drawable.profile)
 }
+
 @Composable
 fun AppNavigation(authViewModel: AuthViewModel, friendViewModel: FriendViewModel, preferencesViewModel: PreferencesViewModel, userId: LiveData<String?>) {
+fun AppNavigation(
+    authViewModel: AuthViewModel,
+    friendViewModel: FriendViewModel,
+    userId: LiveData<String?>  // The user’s Firestore userId
+) {
     val navController = rememberNavController()
 
     // Observe login status from ViewModel
@@ -78,11 +78,33 @@ fun AppNavigation(authViewModel: AuthViewModel, friendViewModel: FriendViewModel
                 composable(Screen.DealsOfTheDay.route) { DealsOfTheDayView(navController) }
                 composable(Screen.CommunityFavourites.route) { CommunityFavouritesView(navController) }
                 composable(Screen.Profile.route) { ProfileView(navController, authViewModel) }
+                composable(Screen.Home.route) {
+                    HomeView(navController)
+                }
+                composable(Screen.DealsOfTheDay.route) {
+                    DealsOfTheDayView(navController)
+                }
+                composable(Screen.CommunityFavourites.route) {
+                    CommunityFavouritesView(navController)
+                }
+                // MyLikes route - pass userId to MyLikesView
+                composable(Screen.MyLikes.route) {
+                    val currentUserId by userId.observeAsState()
+                    currentUserId?.let { userIdVal ->
+                        MyLikesView(
+                            navController = navController,
+                            userId = userIdVal
+                        )
+                    } ?: run {
+                        Log.e("AppNavigation", "User ID is null in MyLikes screen")
+                    }
+                }
+                composable(Screen.ProfileSettings.route) {
+                    ProfileView(navController, authViewModel)
+                }
                 composable(Screen.FriendRequests.route) {
-                    val userId by userId.observeAsState()
-                    // Handle null userId case and pass non-null value to the FriendRequestView
-                    userId?.let { id ->
-                        // Safe to pass 'id' as it's guaranteed non-null
+                    val userIdVal by userId.observeAsState()
+                    userIdVal?.let { id ->
                         FriendRequestView(navController, id)
                     } ?: run {
                         // Handle the case where userId is null (you can show a loading screen or error)
@@ -102,21 +124,20 @@ fun AppNavigation(authViewModel: AuthViewModel, friendViewModel: FriendViewModel
 }
 
 @Composable
-fun BottomNavigationBar(navController: NavController) {
+fun BottomNavigationBar(navController: NavHostController) {
     val items = listOf(
         Screen.Home,
         Screen.DealsOfTheDay,
         Screen.CommunityFavourites,
-        Screen.Profile
+        Screen.MyLikes
     )
 
-    val currentBackStackEntry by navController.currentBackStackEntryAsState() // ✅ FIXED
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
     NavigationBar(
-        containerColor = Color(0xFFF7F7F7), // Custom light gray background color
-        modifier = Modifier
-            .shadow(elevation = 5.dp, spotColor = Color.Black),
+        containerColor = Color(0xFFF7F7F7),
+        modifier = Modifier.shadow(elevation = 5.dp, spotColor = Color.Black)
     ) {
         items.forEach { screen ->
             NavigationBarItem(
@@ -125,16 +146,25 @@ fun BottomNavigationBar(navController: NavController) {
                         Icon(
                             painter = painterResource(id = it),
                             contentDescription = screen.title,
-                            modifier = Modifier.size(35.dp),  // Adjust the size here
+                            modifier = Modifier.size(35.dp)
                         )
                     }
                 },
                 selected = currentRoute == screen.route,
-                onClick = { navController.navigate(screen.route) },
+                onClick = {
+                    navController.navigate(screen.route) {
+                        // Save and restore state to keep previous destinations in memory
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     unselectedIconColor = Color.LightGray,
-                    indicatorColor = Color.Transparent // Remove the background box
+                    indicatorColor = Color.Transparent
                 )
             )
         }
