@@ -102,10 +102,18 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.google.firebase.firestore.ktx)
     implementation(libs.play.services.location.v1800)
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    implementation("androidx.compose.ui:ui:1.4.3")
 
-    implementation("com.google.maps.android:maps-ktx:3.4.0")
-    implementation("com.google.maps.android:maps-utils-ktx:3.4.0")
-    implementation("androidx.compose.material:material-icons-extended:1.5.4")
+
+    // Google Maps dependencies
+    implementation("com.google.maps.android:maps-compose:2.11.4")
+    implementation("com.google.android.gms:play-services-maps:18.1.0")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+
+    // Jetpack Compose ViewModel integration
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
+    implementation("androidx.compose.runtime:runtime-livedata:1.4.3")
 
 
 

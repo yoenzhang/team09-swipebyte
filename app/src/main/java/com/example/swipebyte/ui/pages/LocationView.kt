@@ -2,12 +2,7 @@ package com.example.swipebyte.ui.pages
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.location.LocationManager
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -17,20 +12,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.swipebyte.ui.data.models.UserQueryable
-import kotlinx.coroutines.Dispatchers
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import android.location.LocationManager
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip  // Add this import
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @SuppressLint("MissingPermission")
@@ -40,15 +37,40 @@ fun LocationView(navController: NavController) {
     var latitude by remember { mutableStateOf(43.6532) } // Default to Toronto
     var longitude by remember { mutableStateOf(-79.3832) }
 
-    // State for marker position
-    var markerX by remember { mutableStateOf(0f) }
-    var markerY by remember { mutableStateOf(0f) }
-
     // State for filter radius (in km)
     var radius by remember { mutableStateOf(5.0) }
 
     // State for loading
     var isLoading by remember { mutableStateOf(true) }
+
+    // State for map properties
+    var mapProperties by remember {
+        mutableStateOf(
+            MapProperties(
+                isMyLocationEnabled = true,
+                mapType = MapType.NORMAL
+            )
+        )
+    }
+
+    // State for map UI settings
+    var uiSettings by remember {
+        mutableStateOf(
+            MapUiSettings(
+                myLocationButtonEnabled = false,
+                zoomControlsEnabled = true
+            )
+        )
+    }
+
+    // Used to control the map camera
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(LatLng(latitude, longitude), 14f)
+    }
+
+    // Circle overlay state to show radius
+    var circleCenter by remember { mutableStateOf(LatLng(latitude, longitude)) }
+    var circleRadius by remember { mutableStateOf(radius * 1000) } // Convert km to meters
 
     // Get context for location services
     val context = LocalContext.current
@@ -65,6 +87,8 @@ fun LocationView(navController: NavController) {
         if (userLocation != null) {
             latitude = userLocation.latitude
             longitude = userLocation.longitude
+            circleCenter = LatLng(latitude, longitude)
+            cameraPositionState.position = CameraPosition.fromLatLngZoom(circleCenter, 14f)
         } else {
             // Try getting device location as fallback
             val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -73,13 +97,25 @@ fun LocationView(navController: NavController) {
                 if (lastKnownLocation != null) {
                     latitude = lastKnownLocation.latitude
                     longitude = lastKnownLocation.longitude
+                    circleCenter = LatLng(latitude, longitude)
+                    cameraPositionState.position = CameraPosition.fromLatLngZoom(circleCenter, 14f)
                 }
             } catch (e: Exception) {
                 // Use default Toronto coordinates
             }
         }
 
+        // Get saved radius from preferences
+        val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
+        radius = sharedPrefs.getFloat("location_radius", 5.0f).toDouble()
+        circleRadius = radius * 1000 // Convert km to meters
+
         isLoading = false
+    }
+
+    // Update circle when radius changes
+    LaunchedEffect(radius) {
+        circleRadius = radius * 1000 // Convert km to meters
     }
 
     Column(
@@ -109,13 +145,13 @@ fun LocationView(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Simplified Map container
+        // Google Maps implementation
         if (isLoading) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(400.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(12.dp))  // Fixed
                     .background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
@@ -129,85 +165,52 @@ fun LocationView(navController: NavController) {
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFFE5E5E5))
-                        .pointerInput(Unit) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                markerX += dragAmount.x
-                                markerY += dragAmount.y
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Create a marker state to track position changes
+                    val markerState = rememberMarkerState(position = circleCenter)
 
-                                // Simulate changing latitude/longitude
-                                // In a real map, you'd use proper conversion
-                                // This is just a simulation for UI purposes
-                                latitude += dragAmount.y * -0.0001
-                                longitude += dragAmount.x * 0.0001
-                            }
+                    // Update our location when marker position changes
+                    LaunchedEffect(markerState.position) {
+                        latitude = markerState.position.latitude
+                        longitude = markerState.position.longitude
+                        circleCenter = markerState.position
+                    }
+
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = cameraPositionState,
+                        properties = mapProperties,
+                        uiSettings = uiSettings,
+                        onMapClick = { latLng ->
+                            // Update location when map is clicked
+                            latitude = latLng.latitude
+                            longitude = latLng.longitude
+                            circleCenter = latLng
+                            markerState.position = latLng
                         },
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Draw a grid pattern for map simulation
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val gridSpacing = 50f
-                        val lightGray = Color(0xFFD0D0D0)
-
-                        // Draw horizontal grid lines
-                        for (y in 0..(size.height / gridSpacing).toInt()) {
-                            drawLine(
-                                color = lightGray,
-                                start = Offset(0f, y * gridSpacing),
-                                end = Offset(size.width, y * gridSpacing),
-                                strokeWidth = 1f
-                            )
+                        onMapLoaded = {
+                            // Map has loaded
                         }
-
-                        // Draw vertical grid lines
-                        for (x in 0..(size.width / gridSpacing).toInt()) {
-                            drawLine(
-                                color = lightGray,
-                                start = Offset(x * gridSpacing, 0f),
-                                end = Offset(x * gridSpacing, size.height),
-                                strokeWidth = 1f
-                            )
-                        }
-
-                        // Draw radius circle
-                        drawCircle(
-                            color = Color(0x33E53935),
-                            center = center + Offset(markerX, markerY),
-                            radius = 100f * (radius / 5f).toFloat(),
-                            style = Stroke(width = 2f)
-                        )
-
-                        // Draw radius fill
-                        drawCircle(
-                            color = Color(0x11E53935),
-                            center = center + Offset(markerX, markerY),
-                            radius = 100f * (radius / 5f).toFloat()
-                        )
-                    }
-
-                    // Location marker
-                    Box(
-                        modifier = Modifier
-                            .offset(
-                                x = with(LocalDensity.current) { markerX.toDp() },
-                                y = with(LocalDensity.current) { markerY.toDp() }
-                            )
-                            .size(48.dp),
-                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = "Location",
-                            tint = Color(0xFFE53935),
-                            modifier = Modifier.size(32.dp)
+                        // Marker at selected location
+                        Marker(
+                            state = markerState,
+                            title = "Selected Location",
+                            snippet = "Drag to change location",
+                            draggable = true
+                        )
+
+                        // Circle to show radius
+                        Circle(
+                            center = circleCenter,
+                            radius = circleRadius,
+                            fillColor = Color(0x33E53935),
+                            strokeColor = Color(0xFFE53935),
+                            strokeWidth = 2f
                         )
                     }
 
-                    // Location info
+                    // Location info overlay
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
@@ -234,8 +237,17 @@ fun LocationView(navController: NavController) {
                                 if (lastKnownLocation != null) {
                                     latitude = lastKnownLocation.latitude
                                     longitude = lastKnownLocation.longitude
-                                    markerX = 0f // Reset marker to center
-                                    markerY = 0f
+
+                                    // Update marker and camera
+                                    circleCenter = LatLng(latitude, longitude)
+                                    markerState.position = circleCenter
+                                    scope.launch {
+                                        cameraPositionState.animate(
+                                            CameraUpdateFactory.newLatLngZoom(
+                                                circleCenter, 14f
+                                            ), 1000
+                                        )
+                                    }
                                 }
                             } catch (e: Exception) {
                                 // Handle location error
