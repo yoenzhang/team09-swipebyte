@@ -1,7 +1,10 @@
 package com.example.swipebyte.ui.pages
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,13 +31,16 @@ import android.location.LocationManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.draw.clip  // Add this import
+import androidx.compose.ui.draw.clip
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @SuppressLint("MissingPermission")
 @Composable
 fun LocationView(navController: NavController) {
+    Log.d("LocationView", "Initializing LocationView")
+
     // State for location
     var latitude by remember { mutableStateOf(43.6532) } // Default to Toronto
     var longitude by remember { mutableStateOf(-79.3832) }
@@ -45,12 +51,22 @@ fun LocationView(navController: NavController) {
     // State for loading
     var isLoading by remember { mutableStateOf(true) }
 
+    // Get context for location services
+    val context = LocalContext.current
+
+    // Check if we have location permission
+    val hasLocationPermission = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
     // State for map properties
     var mapProperties by remember {
         mutableStateOf(
             MapProperties(
-                isMyLocationEnabled = true,
-                mapType = MapType.NORMAL
+                isMyLocationEnabled = hasLocationPermission,
+                mapType = MapType.NORMAL,
+                isBuildingEnabled = true // Enable 3D buildings
             )
         )
     }
@@ -59,8 +75,10 @@ fun LocationView(navController: NavController) {
     var uiSettings by remember {
         mutableStateOf(
             MapUiSettings(
-                myLocationButtonEnabled = false,
-                zoomControlsEnabled = true
+                myLocationButtonEnabled = false, // We'll provide our own button
+                zoomControlsEnabled = true,
+                compassEnabled = true,
+                mapToolbarEnabled = true
             )
         )
     }
@@ -74,9 +92,6 @@ fun LocationView(navController: NavController) {
     var circleCenter by remember { mutableStateOf(LatLng(latitude, longitude)) }
     var circleRadius by remember { mutableStateOf(radius * 1000) } // Convert km to meters
 
-    // Get context for location services
-    val context = LocalContext.current
-
     // Scrolling state
     val scrollState = rememberScrollState()
 
@@ -85,42 +100,57 @@ fun LocationView(navController: NavController) {
 
     // Get initial user location
     LaunchedEffect(Unit) {
-        val userLocation = withContext(Dispatchers.IO) {
-            UserQueryable.getUserLocation()
-        }
+        Log.d("LocationView", "Loading initial location data")
 
-        if (userLocation != null) {
-            latitude = userLocation.latitude
-            longitude = userLocation.longitude
-            circleCenter = LatLng(latitude, longitude)
-            cameraPositionState.position = CameraPosition.fromLatLngZoom(circleCenter, 14f)
-        } else {
-            // Try getting device location as fallback
-            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            try {
-                val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                if (lastKnownLocation != null) {
-                    latitude = lastKnownLocation.latitude
-                    longitude = lastKnownLocation.longitude
-                    circleCenter = LatLng(latitude, longitude)
-                    cameraPositionState.position = CameraPosition.fromLatLngZoom(circleCenter, 14f)
-                }
-            } catch (e: Exception) {
-                // Use default Toronto coordinates
+        try {
+            val userLocation = withContext(Dispatchers.IO) {
+                UserQueryable.getUserLocation()
             }
+
+            if (userLocation != null) {
+                Log.d("LocationView", "Using saved user location: ${userLocation.latitude}, ${userLocation.longitude}")
+                latitude = userLocation.latitude
+                longitude = userLocation.longitude
+                circleCenter = LatLng(latitude, longitude)
+                cameraPositionState.position = CameraPosition.fromLatLngZoom(circleCenter, 14f)
+            } else if (hasLocationPermission) {
+                // Try getting device location as fallback
+                Log.d("LocationView", "No saved location, trying device location")
+                val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                try {
+                    val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                    if (lastKnownLocation != null) {
+                        Log.d("LocationView", "Using device location: ${lastKnownLocation.latitude}, ${lastKnownLocation.longitude}")
+                        latitude = lastKnownLocation.latitude
+                        longitude = lastKnownLocation.longitude
+                        circleCenter = LatLng(latitude, longitude)
+                        cameraPositionState.position = CameraPosition.fromLatLngZoom(circleCenter, 14f)
+                    } else {
+                        Log.d("LocationView", "No device location available, using default")
+                    }
+                } catch (e: Exception) {
+                    Log.e("LocationView", "Error getting device location: ${e.message}")
+                    // Use default Toronto coordinates
+                }
+            }
+
+            // Get saved radius from preferences
+            val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
+            radius = sharedPrefs.getFloat("location_radius", 5.0f).toDouble()
+            circleRadius = radius * 1000 // Convert km to meters
+            Log.d("LocationView", "Loaded radius preference: $radius km")
+
+            isLoading = false
+        } catch (e: Exception) {
+            Log.e("LocationView", "Error in LaunchedEffect: ${e.message}")
+            isLoading = false
         }
-
-        // Get saved radius from preferences
-        val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
-        radius = sharedPrefs.getFloat("location_radius", 5.0f).toDouble()
-        circleRadius = radius * 1000 // Convert km to meters
-
-        isLoading = false
     }
 
     // Update circle when radius changes
     LaunchedEffect(radius) {
         circleRadius = radius * 1000 // Convert km to meters
+        Log.d("LocationView", "Updated circle radius to: $radius km")
     }
 
     // Main column with scrolling
@@ -181,6 +211,7 @@ fun LocationView(navController: NavController) {
                         latitude = markerState.position.latitude
                         longitude = markerState.position.longitude
                         circleCenter = markerState.position
+                        Log.d("LocationView", "Marker moved to: ${latitude}, ${longitude}")
                     }
 
                     GoogleMap(
@@ -194,9 +225,10 @@ fun LocationView(navController: NavController) {
                             longitude = latLng.longitude
                             circleCenter = latLng
                             markerState.position = latLng
+                            Log.d("LocationView", "Map clicked at: ${latLng.latitude}, ${latLng.longitude}")
                         },
                         onMapLoaded = {
-                            // Map has loaded
+                            Log.d("LocationView", "Map loaded successfully")
                         }
                     ) {
                         // Marker at selected location
@@ -204,7 +236,12 @@ fun LocationView(navController: NavController) {
                             state = markerState,
                             title = "Selected Location",
                             snippet = "Drag to change location",
-                            draggable = true
+                            draggable = true,
+                            visible = true,
+                            onClick = {
+                                // Return false to allow the info window to show
+                                false
+                            }
                         )
 
                         // Circle to show radius
@@ -238,10 +275,16 @@ fun LocationView(navController: NavController) {
                     // "My Location" button
                     FloatingActionButton(
                         onClick = {
+                            if (!hasLocationPermission) {
+                                Log.d("LocationView", "Location permission not granted")
+                                return@FloatingActionButton
+                            }
+
                             val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
                             try {
                                 val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                                 if (lastKnownLocation != null) {
+                                    Log.d("LocationView", "My Location button: ${lastKnownLocation.latitude}, ${lastKnownLocation.longitude}")
                                     latitude = lastKnownLocation.latitude
                                     longitude = lastKnownLocation.longitude
 
@@ -255,9 +298,11 @@ fun LocationView(navController: NavController) {
                                             ), 1000
                                         )
                                     }
+                                } else {
+                                    Log.d("LocationView", "No location available from provider")
                                 }
                             } catch (e: Exception) {
-                                // Handle location error
+                                Log.e("LocationView", "Error getting location: ${e.message}")
                             }
                         },
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -290,6 +335,7 @@ fun LocationView(navController: NavController) {
             value = radius.toFloat(),
             onValueChange = {
                 radius = it.toDouble()
+                Log.d("LocationView", "Radius changed to: $radius km")
             },
             valueRange = 1f..25f,
             steps = 24,
@@ -363,6 +409,7 @@ fun LocationView(navController: NavController) {
 
             Button(
                 onClick = {
+                    Log.d("LocationView", "Saving location: $latitude, $longitude with radius: $radius km")
                     // Save location to user profile
                     scope.launch {
                         try {
@@ -375,11 +422,12 @@ fun LocationView(navController: NavController) {
                                 putFloat("location_radius", radius.toFloat())
                                 apply()
                             }
+                            Log.d("LocationView", "Location saved successfully")
 
                             // Navigate back to home
                             navController.popBackStack()
                         } catch (e: Exception) {
-                            // Error handling
+                            Log.e("LocationView", "Error saving location: ${e.message}")
                         }
                     }
                 },
