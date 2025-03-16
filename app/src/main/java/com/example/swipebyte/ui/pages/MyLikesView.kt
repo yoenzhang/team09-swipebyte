@@ -25,8 +25,9 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
@@ -34,6 +35,8 @@ import com.example.swipebyte.R
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.MyLikesViewModel
+// Import your RestaurantInfoScreen composable
+import com.example.swipebyte.ui.pages.RestaurantInfoScreen
 
 @Composable
 fun MyLikesView(
@@ -44,11 +47,11 @@ fun MyLikesView(
     var isLoading by remember { mutableStateOf(true) }
     val likedRestaurants by myLikesViewModel.likedRestaurants.collectAsState(emptyList())
     val timestampsMap by myLikesViewModel.timestampsMap.collectAsState(emptyMap())
-
     var timeFilter by remember { mutableStateOf("Last 24 hours") }
     var selectedCuisines by remember { mutableStateOf(setOf<String>()) }
     var selectedCosts by remember { mutableStateOf(setOf<String>()) }
     var showFilterDialog by remember { mutableStateOf(false) }
+    var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -58,31 +61,24 @@ fun MyLikesView(
 
     val oneDayMillis = 24 * 60 * 60 * 1000L
     val currentTime = System.currentTimeMillis()
-
     val filteredRestaurants = remember(likedRestaurants, timestampsMap, timeFilter, selectedCuisines, selectedCosts) {
         likedRestaurants.filter { restaurant ->
             val restId = restaurant.id ?: return@filter false
             val ts = timestampsMap[restId] ?: 0L
-            val timeCondition = if (timeFilter == "Last 24 Hours") {
-                (currentTime - ts) < oneDayMillis
-            } else {
-                true
-            }
-            val cuisineCondition = if (selectedCuisines.isEmpty()) {
-                true
-            } else {
-                restaurant.cuisineType.any { it in selectedCuisines }
-            }
-            val costCondition = if (selectedCosts.isEmpty()) {
-                true
-            } else {
-                restaurant.priceRange?.trim() in selectedCosts
-            }
+            // Only include restaurants with a valid (non-zero) timestamp that was set within the last 24 hours.
+            val timeCondition = if (timeFilter == "Last 24 hours") {
+                ts != 0L && (currentTime - ts) < oneDayMillis
+            } else true
+            val cuisineCondition = if (selectedCuisines.isEmpty()) true
+            else restaurant.cuisineType.any { it in selectedCuisines }
+            val costCondition = if (selectedCosts.isEmpty()) true
+            else restaurant.priceRange?.trim() in selectedCosts
             timeCondition && cuisineCondition && costCondition
         }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        // Top bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -93,7 +89,10 @@ fun MyLikesView(
                 )
                 .padding(vertical = 12.dp, horizontal = 16.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Image(
                     painter = painterResource(id = R.drawable.bird_logo),
                     contentDescription = "App Logo",
@@ -125,6 +124,7 @@ fun MyLikesView(
                 }
             }
         }
+        // Header row with title and filter button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -156,6 +156,7 @@ fun MyLikesView(
                 onDismiss = { showFilterDialog = false }
             )
         }
+        // List of liked restaurants
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -180,21 +181,33 @@ fun MyLikesView(
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
                         items(filteredRestaurants) { restaurant ->
-                            LikedRestaurantCard(restaurant)
+                            LikedRestaurantCard(restaurant) { selectedRestaurant = restaurant }
                         }
                     }
                 }
             }
         }
     }
+    // Show restaurant info in a dialog when a restaurant is selected
+    if (selectedRestaurant != null) {
+        Dialog(
+            onDismissRequest = { selectedRestaurant = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            RestaurantInfoScreen(
+                restaurant = selectedRestaurant!!,
+                onDismiss = { selectedRestaurant = null }
+            )
+        }
+    }
 }
 
 @Composable
-fun LikedRestaurantCard(restaurant: Restaurant) {
+fun LikedRestaurantCard(restaurant: Restaurant, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {},
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(16.dp)
     ) {

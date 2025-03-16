@@ -3,19 +3,14 @@ package com.example.swipebyte.ui.pages
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,17 +24,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.swipebyte.R
+import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.viewmodel.CommunityFavouritesViewModel
+import com.example.swipebyte.ui.pages.RestaurantInfoScreen
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+
 
 @Composable
 fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFavouritesViewModel = viewModel()) {
-    // State for loading
     var isLoading by remember { mutableStateOf(true) }
-
     val favoriteRestaurants by viewModel.favorites.collectAsState(initial = emptyList())
+    var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
 
     LaunchedEffect(Unit) {
         try {
@@ -47,12 +46,12 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
         } catch (e: Exception) {
             Log.e("CommunityFavourites", "Error fetching community favorites: ${e.message}")
         } finally {
-            isLoading = false // Set loading to false once the data is fetched
+            isLoading = false
         }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Improved top app bar with SwipeByte (you can keep the same as in HomeView)
+        // Top bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -78,9 +77,7 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
-
                 Spacer(modifier = Modifier.width(12.dp))
-
                 Text(
                     text = "SwipeByte",
                     style = MaterialTheme.typography.headlineMedium.copy(
@@ -93,11 +90,9 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
                         )
                     )
                 )
-
                 Spacer(modifier = Modifier.weight(1f))
             }
         }
-
         // Main content
         Column(
             modifier = Modifier
@@ -109,20 +104,12 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
                 text = "Community Favorites",
                 style = MaterialTheme.typography.headlineMedium
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            //FilterOptions()
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Show loading indicator while data is being fetched
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else if (favoriteRestaurants.isEmpty()) {
-                // Show empty state when no restaurants are available
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No community favorites found")
                 }
@@ -134,30 +121,34 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
                 ) {
                     items(favoriteRestaurants) { restaurant ->
                         CommunityFavouriteCard(
-                            name = restaurant.name,
-                            cuisine = restaurant.cuisineType.joinToString(", "),
-                            rating = restaurant.averageRating.toString(),
-                            distance = restaurant.distance.toString(),
-                            imageUrl = restaurant.imageUrls[0]
+                            restaurant = restaurant,
+                            onClick = { selectedRestaurant = restaurant }
                         )
                     }
                 }
             }
         }
     }
+    // Show restaurant info dialog when a restaurant is selected
+    if (selectedRestaurant != null) {
+        Dialog(
+            onDismissRequest = { selectedRestaurant = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            RestaurantInfoScreen(restaurant = selectedRestaurant!!, onDismiss = { selectedRestaurant = null })
+        }
+    }
 }
 
 @Composable
 fun CommunityFavouriteCard(
-    name: String,
-    cuisine: String,
-    rating: String,
-    distance: String,
-    imageUrl: String
+    restaurant: Restaurant,
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -169,25 +160,23 @@ fun CommunityFavouriteCard(
                     .height(140.dp)
             ) {
                 Image(
-                    painter = rememberAsyncImagePainter(model = imageUrl),
+                    painter = rememberAsyncImagePainter(model = restaurant.imageUrls.first()),
                     contentDescription = "Place Image",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-                // Dark overlay for improved text visibility
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = 0.3f))
                 )
-                // Restaurant name displayed over the image
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = name,
+                        text = restaurant.name,
                         style = MaterialTheme.typography.titleLarge,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
@@ -206,7 +195,7 @@ fun CommunityFavouriteCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = cuisine,
+                        text = restaurant.cuisineType.joinToString(", "),
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Gray,
                         maxLines = 1,
@@ -214,14 +203,14 @@ fun CommunityFavouriteCard(
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        text = "⭐ $rating",
+                        text = "⭐ ${restaurant.averageRating}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "$distance km away",
+                    text = "${restaurant.distance} km away",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
