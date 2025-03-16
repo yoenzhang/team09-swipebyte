@@ -106,7 +106,7 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
             horizontalAlignment = Alignment.Start
         ) {
             Text(
-                text = "🌟 Community Favorites",
+                text = "Community Favorites",
                 style = MaterialTheme.typography.headlineMedium
             )
 

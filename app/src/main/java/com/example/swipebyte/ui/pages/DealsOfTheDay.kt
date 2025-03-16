@@ -379,7 +379,7 @@ fun DealsOfTheDayView(navController: NavController) {
         horizontalAlignment = Alignment.Start
     ) {
         Text(
-            text = "🔥 Deals of the Day",
+            text = "Deals of the Day",
             style = MaterialTheme.typography.headlineMedium
         )
 

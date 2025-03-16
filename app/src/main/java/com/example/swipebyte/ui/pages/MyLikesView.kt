@@ -45,7 +45,7 @@ fun MyLikesView(
     val likedRestaurants by myLikesViewModel.likedRestaurants.collectAsState(emptyList())
     val timestampsMap by myLikesViewModel.timestampsMap.collectAsState(emptyMap())
 
-    var timeFilter by remember { mutableStateOf("Last Week") }
+    var timeFilter by remember { mutableStateOf("Last 24 hours") }
     var selectedCuisines by remember { mutableStateOf(setOf<String>()) }
     var selectedCosts by remember { mutableStateOf(setOf<String>()) }
     var showFilterDialog by remember { mutableStateOf(false) }
@@ -56,16 +56,15 @@ fun MyLikesView(
         isLoading = false
     }
 
-    val oneWeekMillis = 7 * 24 * 60 * 60 * 1000L
+    val oneDayMillis = 24 * 60 * 60 * 1000L
     val currentTime = System.currentTimeMillis()
 
     val filteredRestaurants = remember(likedRestaurants, timestampsMap, timeFilter, selectedCuisines, selectedCosts) {
         likedRestaurants.filter { restaurant ->
-            // If Restaurant doesn't have an 'id', add one in your model or use doc ID from Firestore
             val restId = restaurant.id ?: return@filter false
             val ts = timestampsMap[restId] ?: 0L
-            val timeCondition = if (timeFilter == "Last Week") {
-                (currentTime - ts) < oneWeekMillis
+            val timeCondition = if (timeFilter == "Last 24 Hours") {
+                (currentTime - ts) < oneDayMillis
             } else {
                 true
             }
@@ -134,7 +133,7 @@ fun MyLikesView(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "💖 My Likes",
+                text = "My Likes",
                 style = MaterialTheme.typography.headlineMedium
             )
             IconButton(onClick = { showFilterDialog = true }) {
@@ -283,7 +282,7 @@ fun MyLikesFilterDialog(
             ) {
                 Column {
                     Text("Time Filter", style = MaterialTheme.typography.titleMedium)
-                    val timeOptions = listOf("Last Week", "All Time")
+                    val timeOptions = listOf("Last 24 hours", "All Time")
                     timeOptions.forEach { option ->
                         Row(
                             modifier = Modifier
