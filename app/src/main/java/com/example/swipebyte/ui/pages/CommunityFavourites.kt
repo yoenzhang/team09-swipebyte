@@ -157,48 +157,71 @@ fun CommunityFavouriteCard(
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)) // Light orange background
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = rememberAsyncImagePainter(model = imageUrl),
-                contentDescription = "Place Image",
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Header with full-width image and overlay
+            Box(
                 modifier = Modifier
-                    .size(100.dp)
-                    .aspectRatio(1f),
-                contentScale = ContentScale.Crop
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Column(
-                modifier = Modifier.fillMaxHeight(),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .fillMaxWidth()
+                    .height(140.dp)
             ) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                Image(
+                    painter = rememberAsyncImagePainter(model = imageUrl),
+                    contentDescription = "Place Image",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
-                Text(
-                    text = cuisine,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
+                // Dark overlay for improved text visibility
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f))
                 )
+                // Restaurant name displayed over the image
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            // Content section with additional details
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = cuisine,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "⭐ $rating",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = rating,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
-                )
-                Text(
-                    text = distance,
+                    text = "$distance km away",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )

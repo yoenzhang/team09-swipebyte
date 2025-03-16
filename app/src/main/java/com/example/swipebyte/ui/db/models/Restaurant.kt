@@ -26,6 +26,7 @@ data class Restaurant(
     val hours: List<YelpHours>? = emptyList()
 )
 
+
 class RestaurantQueryable {
     companion object {
         private val restaurantList : List<Restaurant> = emptyList()

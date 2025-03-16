@@ -2,14 +2,18 @@ package com.example.swipebyte.ui.pages
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,23 +24,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.swipebyte.R
+import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.MyLikesViewModel
 
 @Composable
 fun MyLikesView(
     navController: NavController,
-    userId: String,  // Pass the user's Firestore userId
+    userId: String,
     myLikesViewModel: MyLikesViewModel = viewModel()
 ) {
     var isLoading by remember { mutableStateOf(true) }
-    val likedRestaurants by myLikesViewModel.likedRestaurants.collectAsState(initial = emptyList())
+    val likedRestaurants by myLikesViewModel.likedRestaurants.collectAsState(emptyList())
+    val timestampsMap by myLikesViewModel.timestampsMap.collectAsState(emptyMap())
+
+    var timeFilter by remember { mutableStateOf("Last Week") }
+    var selectedCuisines by remember { mutableStateOf(setOf<String>()) }
+    var selectedCosts by remember { mutableStateOf(setOf<String>()) }
+    var showFilterDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -44,25 +56,45 @@ fun MyLikesView(
         isLoading = false
     }
 
+    val oneWeekMillis = 7 * 24 * 60 * 60 * 1000L
+    val currentTime = System.currentTimeMillis()
+
+    val filteredRestaurants = remember(likedRestaurants, timestampsMap, timeFilter, selectedCuisines, selectedCosts) {
+        likedRestaurants.filter { restaurant ->
+            // If Restaurant doesn't have an 'id', add one in your model or use doc ID from Firestore
+            val restId = restaurant.id ?: return@filter false
+            val ts = timestampsMap[restId] ?: 0L
+            val timeCondition = if (timeFilter == "Last Week") {
+                (currentTime - ts) < oneWeekMillis
+            } else {
+                true
+            }
+            val cuisineCondition = if (selectedCuisines.isEmpty()) {
+                true
+            } else {
+                restaurant.cuisineType.any { it in selectedCuisines }
+            }
+            val costCondition = if (selectedCosts.isEmpty()) {
+                true
+            } else {
+                restaurant.priceRange?.trim() in selectedCosts
+            }
+            timeCondition && cuisineCondition && costCondition
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        // Top bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFE53935),
-                            Color(0xFFEF5350)
-                        )
+                        colors = listOf(Color(0xFFE53935), Color(0xFFEF5350))
                     )
                 )
                 .padding(vertical = 12.dp, horizontal = 16.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Image(
                     painter = painterResource(id = R.drawable.bird_logo),
                     contentDescription = "App Logo",
@@ -75,7 +107,7 @@ fun MyLikesView(
                 Text(
                     text = "SwipeByte",
                     style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        fontWeight = FontWeight.Bold,
                         color = Color.White,
                         shadow = Shadow(
                             color = Color.Black.copy(alpha = 0.2f),
@@ -85,105 +117,257 @@ fun MyLikesView(
                     )
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = { navController.navigate(Screen.ProfileSettings.route) }) {
+                IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
                     Icon(
                         imageVector = Icons.Default.Settings,
-                        contentDescription = "Profile Settings"
+                        contentDescription = "Settings",
+                        tint = Color.White
                     )
                 }
             }
         }
-
-        // Main content
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "💖 My Likes",
+                style = MaterialTheme.typography.headlineMedium
+            )
+            IconButton(onClick = { showFilterDialog = true }) {
+                Icon(
+                    imageVector = Icons.Default.FilterList,
+                    contentDescription = "Filter",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        if (showFilterDialog) {
+            MyLikesFilterDialog(
+                timeFilter = timeFilter,
+                onTimeFilterChange = { timeFilter = it },
+                selectedCuisines = selectedCuisines,
+                onCuisinesChange = { selectedCuisines = it },
+                selectedCosts = selectedCosts,
+                onCostsChange = { selectedCosts = it },
+                onApply = { showFilterDialog = false },
+                onDismiss = { showFilterDialog = false }
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            Text(
-                text = "💖 My Likes",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
             when {
                 isLoading -> {
-                    // Show a loading indicator while we fetch data
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
-                likedRestaurants.isEmpty() -> {
-                    // If no restaurants found for this user
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("No restaurants found")
+                filteredRestaurants.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No liked restaurants found")
                     }
                 }
                 else -> {
-                    // Show the list of restaurants
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
-                        items(likedRestaurants) { restaurant ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    if (restaurant.imageUrls.isNotEmpty()) {
-                                        Image(
-                                            painter = rememberAsyncImagePainter(model = restaurant.imageUrls.first()),
-                                            contentDescription = restaurant.name,
-                                            modifier = Modifier
-                                                .size(80.dp)
-                                                .clip(RoundedCornerShape(8.dp)),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                    }
-                                    Column {
-                                        Text(
-                                            text = restaurant.name,
-                                            style = MaterialTheme.typography.titleMedium
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = restaurant.cuisineType.joinToString(", "),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color.Gray,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "Rating: ${restaurant.averageRating}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color.Gray
-                                        )
-                                    }
-                                }
-                            }
+                        items(filteredRestaurants) { restaurant ->
+                            LikedRestaurantCard(restaurant)
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun LikedRestaurantCard(restaurant: Restaurant) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {},
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+            ) {
+                if (restaurant.imageUrls.isNotEmpty()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = restaurant.imageUrls.first()),
+                        contentDescription = restaurant.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f))
+                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = restaurant.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = restaurant.cuisineType.joinToString(", "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "⭐ ${restaurant.averageRating}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${restaurant.distance} km away",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MyLikesFilterDialog(
+    timeFilter: String,
+    onTimeFilterChange: (String) -> Unit,
+    selectedCuisines: Set<String>,
+    onCuisinesChange: (Set<String>) -> Unit,
+    selectedCosts: Set<String>,
+    onCostsChange: (Set<String>) -> Unit,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Filter My Likes") },
+        text = {
+            Box(
+                modifier = Modifier
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Column {
+                    Text("Time Filter", style = MaterialTheme.typography.titleMedium)
+                    val timeOptions = listOf("Last Week", "All Time")
+                    timeOptions.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onTimeFilterChange(option) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = (timeFilter == option),
+                                onClick = { onTimeFilterChange(option) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(option)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Cuisine Preferences", style = MaterialTheme.typography.titleMedium)
+                    val allCuisines = listOf("Italian", "Chinese", "Mexican", "Indian", "American", "Japanese", "Thai")
+                    allCuisines.forEach { cuisine ->
+                        val isSelected = cuisine in selectedCuisines
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newSet = selectedCuisines.toMutableSet()
+                                    if (isSelected) newSet.remove(cuisine) else newSet.add(cuisine)
+                                    onCuisinesChange(newSet)
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { checked ->
+                                    val newSet = selectedCuisines.toMutableSet()
+                                    if (checked) newSet.add(cuisine) else newSet.remove(cuisine)
+                                    onCuisinesChange(newSet)
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(cuisine)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Cost Preferences", style = MaterialTheme.typography.titleMedium)
+                    val costOptions = listOf("$", "$$", "$$$", "$$$$")
+                    costOptions.forEach { cost ->
+                        val isSelected = cost in selectedCosts
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newSet = selectedCosts.toMutableSet()
+                                    if (isSelected) newSet.remove(cost) else newSet.add(cost)
+                                    onCostsChange(newSet)
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { checked ->
+                                    val newSet = selectedCosts.toMutableSet()
+                                    if (checked) newSet.add(cost) else newSet.remove(cost)
+                                    onCostsChange(newSet)
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(cost)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onApply) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

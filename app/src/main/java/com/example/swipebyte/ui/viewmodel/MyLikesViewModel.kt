@@ -11,55 +11,47 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class MyLikesViewModel : ViewModel() {
-
     private val db = FirebaseFirestore.getInstance()
 
     private val _likedRestaurants = MutableStateFlow<List<Restaurant>>(emptyList())
     val likedRestaurants: StateFlow<List<Restaurant>> = _likedRestaurants
 
-    /**
-     * Fetch all restaurants that a given [userId] has swiped on (e.g., action=1 for 'like').
-     * The userSwipes docs must contain fields:
-     *   - userId (String)
-     *   - restaurantId (String)
-     *   - action (Int) [optional if you only want likes, use .whereEqualTo("action", 1)]
-     */
+    private val _timestampsMap = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val timestampsMap: StateFlow<Map<String, Long>> = _timestampsMap
+
     fun fetchUserSwipedRestaurants(userId: String) {
         viewModelScope.launch {
             try {
-                // 1) Query userSwipes for docs matching the current userId
-                //    and optionally filter to action=1 if you only want 'likes'.
                 val swipeDocs = db.collection("userSwipes")
                     .whereEqualTo("userId", userId)
-                    // .whereEqualTo("action", 1) // Uncomment if you only want liked swipes
+                    .whereEqualTo("action", 1)
                     .get()
                     .await()
 
-                // 2) Extract restaurant IDs from these documents
-                val restaurantIds = swipeDocs.documents.mapNotNull { doc ->
-                    doc.getString("restaurantId")
-                }.distinct()
+                val tsMap = mutableMapOf<String, Long>()
+                val restaurantIds = mutableSetOf<String>()
 
-                // 3) Fetch each restaurant from the "restaurants" collection by its doc ID
+                for (doc in swipeDocs.documents) {
+                    val restId = doc.getString("restaurantId") ?: continue
+                    val ts = doc.getLong("timestamp") ?: continue
+                    restaurantIds.add(restId)
+                    tsMap[restId] = ts
+                }
+
                 val restaurantsList = mutableListOf<Restaurant>()
-                for (id in restaurantIds) {
-                    val restaurantDoc = db.collection("restaurants")
-                        .document(id)
-                        .get()
-                        .await()
-
-                    if (restaurantDoc.exists()) {
-                        restaurantDoc.toObject(Restaurant::class.java)?.let { restaurant ->
+                for (restId in restaurantIds) {
+                    val restDoc = db.collection("restaurants").document(restId).get().await()
+                    if (restDoc.exists()) {
+                        restDoc.toObject(Restaurant::class.java)?.let { restaurant ->
+                            // If your Restaurant model doesn't have an 'id' field, you may need to add one,
+                            // or store the Firestore doc ID in some property on 'restaurant' for reference.
                             restaurantsList.add(restaurant)
                         }
-                    } else {
-                        Log.w("MyLikesViewModel", "No matching doc in 'restaurants' for ID: $id")
                     }
                 }
 
-                // 4) Update our StateFlow with the results
+                _timestampsMap.value = tsMap
                 _likedRestaurants.value = restaurantsList
-
             } catch (e: Exception) {
                 Log.e("MyLikesViewModel", "Error fetching swiped restaurants: ", e)
             }
