@@ -9,12 +9,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +27,8 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -37,12 +41,14 @@ import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.MyLikesViewModel
 // Import your RestaurantInfoScreen composable
 import com.example.swipebyte.ui.pages.RestaurantInfoScreen
+import com.example.swipebyte.ui.viewmodel.FriendViewModel
 
 @Composable
 fun MyLikesView(
     navController: NavController,
     userId: String,
-    myLikesViewModel: MyLikesViewModel = viewModel()
+    myLikesViewModel: MyLikesViewModel = viewModel(),
+    friendViewModel: FriendViewModel = viewModel()
 ) {
     var isLoading by remember { mutableStateOf(true) }
     val likedRestaurants by myLikesViewModel.likedRestaurants.collectAsState(emptyList())
@@ -53,6 +59,15 @@ fun MyLikesView(
     var showFilterDialog by remember { mutableStateOf(false) }
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
 
+    // State to track which view to display
+    var currentView by remember { mutableStateOf("likes") }
+
+    // Friend-related state
+    val pendingRequests by friendViewModel.pendingRequests.observeAsState(emptyList())
+    val friendsList by friendViewModel.friendsList.observeAsState(emptyList())
+    var emailInput by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+
     // Keep original values to restore if dialog is canceled
     var originalTimeFilter by remember { mutableStateOf(timeFilter) }
     var originalSelectedCuisines by remember { mutableStateOf(selectedCuisines) }
@@ -62,6 +77,14 @@ fun MyLikesView(
         isLoading = true
         myLikesViewModel.fetchUserSwipedRestaurants(userId)
         isLoading = false
+    }
+
+    // Load friend data when needed
+    LaunchedEffect(userId, currentView) {
+        if (currentView == "friends") {
+            friendViewModel.loadPendingRequests(userId)
+            friendViewModel.loadFriendsList(userId)
+        }
     }
 
     val oneDayMillis = 24 * 60 * 60 * 1000L
@@ -129,82 +152,216 @@ fun MyLikesView(
                 }
             }
         }
-        // Header row with title and filter button
+
+        // Toggle buttons for switching views
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Text(
-                text = "My Likes",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            IconButton(onClick = {
-                // Save original values when opening the dialog
-                originalTimeFilter = timeFilter
-                originalSelectedCuisines = selectedCuisines
-                originalSelectedCosts = selectedCosts
-                showFilterDialog = true
-            }) {
-                Icon(
-                    imageVector = Icons.Default.FilterList,
-                    contentDescription = "Filter",
-                    tint = MaterialTheme.colorScheme.primary
+            Button(
+                onClick = { currentView = "likes" },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (currentView == "likes")
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
                 )
+            ) {
+                Text("My Likes")
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Button(
+                onClick = { currentView = "friends" },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (currentView == "friends")
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text("Friend Requests")
             }
         }
-        if (showFilterDialog) {
-            MyLikesFilterDialog(
-                timeFilter = timeFilter,
-                onTimeFilterChange = { timeFilter = it },
-                selectedCuisines = selectedCuisines,
-                onCuisinesChange = { selectedCuisines = it },
-                selectedCosts = selectedCosts,
-                onCostsChange = { selectedCosts = it },
-                onApply = { showFilterDialog = false },
-                onDismiss = {
-                    // Restore original values when canceling
-                    timeFilter = originalTimeFilter
-                    selectedCuisines = originalSelectedCuisines
-                    selectedCosts = originalSelectedCosts
-                    showFilterDialog = false
-                }
-            )
-        }
-        // List of liked restaurants
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            when {
-                isLoading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+
+        // Content based on selected view
+        when (currentView) {
+            "likes" -> {
+                // Header row with title and filter button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "My Likes",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                    IconButton(onClick = {
+                        // Save original values when opening the dialog
+                        originalTimeFilter = timeFilter
+                        originalSelectedCuisines = selectedCuisines
+                        originalSelectedCosts = selectedCosts
+                        showFilterDialog = true
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.FilterList,
+                            contentDescription = "Filter",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
-                filteredRestaurants.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No liked restaurants found")
+                if (showFilterDialog) {
+                    MyLikesFilterDialog(
+                        timeFilter = timeFilter,
+                        onTimeFilterChange = { timeFilter = it },
+                        selectedCuisines = selectedCuisines,
+                        onCuisinesChange = { selectedCuisines = it },
+                        selectedCosts = selectedCosts,
+                        onCostsChange = { selectedCosts = it },
+                        onApply = { showFilterDialog = false },
+                        onDismiss = {
+                            // Restore original values when canceling
+                            timeFilter = originalTimeFilter
+                            selectedCuisines = originalSelectedCuisines
+                            selectedCosts = originalSelectedCosts
+                            showFilterDialog = false
+                        }
+                    )
+                }
+                // List of liked restaurants
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    when {
+                        isLoading -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                        filteredRestaurants.isEmpty() -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No liked restaurants found")
+                            }
+                        }
+                        else -> {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                contentPadding = PaddingValues(bottom = 16.dp)
+                            ) {
+                                items(filteredRestaurants) { restaurant ->
+                                    LikedRestaurantCard(restaurant) { selectedRestaurant = restaurant }
+                                }
+                            }
+                        }
                     }
                 }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+            }
+            "friends" -> {
+                // Friend Requests View Content
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(text = "Add Friends", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = emailInput,
+                        onValueChange = { emailInput = it },
+                        label = { Text("Enter Email to Add Friend") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Email),
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            if (emailInput.isNotEmpty()) {
+                                friendViewModel.sendFriendRequest(userId, emailInput)
+                                emailInput = ""
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(filteredRestaurants) { restaurant ->
-                            LikedRestaurantCard(restaurant) { selectedRestaurant = restaurant }
+                        Text("Send Friend Request")
+                    }
+
+                    // Friend Requests Section
+                    if (pendingRequests.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Friend Requests (${pendingRequests.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Column {
+                            pendingRequests.forEach { (request, name) ->
+                                FriendRequestItem(
+                                    request = request,
+                                    name = name,
+                                    onAccept = { friendViewModel.acceptFriendRequest(request.requestId, request.senderId, userId) },
+                                    onDecline = { friendViewModel.declineFriendRequest(request.requestId, userId) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Friends List Section
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "Friends (${friendsList.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (friendsList.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No friends yet. Send a friend request to get started!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Column {
+                            friendsList.forEach { (friendId, friendName) ->
+                                FriendItem(friendId = friendId, friendName = friendName)
+                            }
                         }
                     }
                 }
             }
         }
     }
+
     // Show restaurant info in a dialog when a restaurant is selected
     if (selectedRestaurant != null) {
         Dialog(
