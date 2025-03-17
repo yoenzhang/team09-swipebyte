@@ -55,6 +55,7 @@ class RestaurantViewModel : ViewModel() {
 
                 // Sort results by distance (closest first)
                 val sortedResult = filteredResult.sortedBy { it.distance }
+                _isLoading.value = false
 
                 _restaurants.value = sortedResult
                 _isLoading.value = false

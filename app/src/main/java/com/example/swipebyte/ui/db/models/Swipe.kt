@@ -55,28 +55,35 @@ class SwipeQueryable {
             }
         }
 
+        // Modified to be a suspend function that awaits completion
         suspend fun recordSwipe(restaurantId: String, restaurantName: String, isLiked: Boolean) {
-            val userData = UserQueryable.getUserData()
-            var userId = ""
-            var userInfo : Map<String, Any> = emptyMap()
-            if (userData != null) {
-                userId = userData.first // Firestore document ID
-                userInfo = userData.second // User data as Map<String, Any>
+            try {
+                val userData = UserQueryable.getUserData()
+                var userId = ""
+                var userInfo : Map<String, Any> = emptyMap()
+                if (userData != null) {
+                    userId = userData.first // Firestore document ID
+                    userInfo = userData.second // User data as Map<String, Any>
+                }
+                val swipeData = UserSwipe(
+                    userId,
+                    userInfo["email"].toString(),
+                    restaurantId,
+                    restaurantName,
+                    if (isLiked) 1 else -1,
+                    System.currentTimeMillis()
+                )
+
+                val documentId = "${userId}_$restaurantId" // Unique key per user-restaurant swipe
+
+                // Use await() to make this synchronous
+                userSwipesCollection.document(documentId).set(swipeData).await()
+
+                Log.d("SwipeRepo", "Recording ${if (isLiked) "LIKE" else "DISLIKE"} swipe on restaurant $restaurantName ($restaurantId)")
+            } catch (e: Exception) {
+                Log.e("SwipeRepo", "Error recording swipe", e)
+                throw e  // Rethrow to handle in the caller
             }
-            val swipeData = UserSwipe(
-                userId,
-                userInfo["email"].toString(),
-                restaurantId,
-                restaurantName,
-                if (isLiked) 1 else -1,
-                System.currentTimeMillis()
-            )
-
-            val documentId = "${userId}_$restaurantId" // Unique key per user-restaurant swipe
-
-            userSwipesCollection.document(documentId).set(swipeData)
-                .addOnSuccessListener { Log.d("SwipeRepo", "Swipe recorded successfully") }
-                .addOnFailureListener { Log.e("SwipeRepo", "Error recording swipe", it) }
         }
     }
 }

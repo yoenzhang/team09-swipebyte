@@ -74,6 +74,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.isActive
+import androidx.compose.material.icons.filled.Refresh
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -714,6 +715,9 @@ fun HomeView(navController: NavController) {
     // State to track if card is being swiped
     var isCardSwiping by remember { mutableStateOf(false) }
 
+    // State to track when to reload data (increased when we need a refresh)
+    var refreshTrigger by remember { mutableStateOf(0) }
+
     // Coroutine scope for animations
     val coroutineScope = rememberCoroutineScope()
 
@@ -743,9 +747,10 @@ fun HomeView(navController: NavController) {
         }
     }
 
-    // Load restaurants data when the composable is first launched
-    LaunchedEffect(Unit) {
-        // Load restaurants with location-based filtering
+    // Load restaurants data when the composable is first launched or refreshTrigger changes
+    LaunchedEffect(refreshTrigger) {
+        Log.d("HomeView", "Loading restaurants, refreshTrigger: $refreshTrigger")
+        // Don't set isLoading here as it's controlled by the ViewModel
         restaurantViewModel.loadRestaurants(context)
     }
 
@@ -761,6 +766,22 @@ fun HomeView(navController: NavController) {
             delay(15*60 * 1000)
             Log.d("HomeView", "Auto-refreshing restaurant list to check for newly available restaurants")
             restaurantViewModel.loadRestaurants(context)
+        }
+    }
+
+    // Add this DisposableEffect to refresh when coming back to HomeView
+    DisposableEffect(navController) {
+        val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
+            if (destination.route == Screen.Home.route) {
+                // Refresh when returning to Home screen
+                refreshTrigger++
+                Log.d("HomeView", "Returning to HomeView, triggering refresh")
+            }
+        }
+
+        navController.addOnDestinationChangedListener(listener)
+        onDispose {
+            navController.removeOnDestinationChangedListener(listener)
         }
     }
 
@@ -823,7 +844,24 @@ fun HomeView(navController: NavController) {
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
-                // Settings button - Added this part
+
+                // Refresh button
+                IconButton(
+                    onClick = {
+                        refreshTrigger++  // Trigger refresh
+                        restaurantViewModel.refreshRestaurants(context)
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh Restaurants",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // Settings button
                 IconButton(
                     onClick = { navController.navigate(Screen.Settings.route) },
                     modifier = Modifier.size(40.dp)
@@ -906,14 +944,34 @@ fun HomeView(navController: NavController) {
                                 // Mark card as swiping
                                 isCardSwiping = true
 
-                                // Move to next restaurant with a slight delay to allow animation to complete
+                                // Record the swipe in Firestore first (ensure it's complete)
                                 coroutineScope.launch {
-                                    delay(50) // Short delay for animation
-                                    if (currentIndex < restaurantList.size - 1) {
-                                        currentIndex++
+                                    val isLiked = direction == "Right"
+                                    // Add await() here to ensure the swipe is recorded before moving on
+                                    try {
+                                        SwipeQueryable.recordSwipe(restaurantList[currentIndex].id, restaurantList[currentIndex].name, isLiked)
+
+                                        // Small delay to ensure Firestore has time to register the swipe
+                                        delay(300)
+
+                                        // Now refresh the list to remove the swiped restaurant
+                                        restaurantViewModel.loadRestaurants(context)
+
+                                        // Move to next restaurant with a slight delay
+                                        delay(50)
+                                        if (currentIndex < restaurantList.size - 1) {
+                                            currentIndex++
+                                        } else {
+                                            // If this was the last restaurant, there's nothing left to show
+                                            // We don't need to handle this specifically as the UI will show "You've seen all restaurants"
+                                        }
+
+                                        // Reset swiping state
+                                        isCardSwiping = false
+                                    } catch (e: Exception) {
+                                        Log.e("HomeView", "Error recording swipe: ${e.message}")
+                                        isCardSwiping = false
                                     }
-                                    // Reset swiping state
-                                    isCardSwiping = false
                                 }
                             },
                             onDetailsClick = {
