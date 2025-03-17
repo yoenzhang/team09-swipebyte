@@ -769,30 +769,31 @@ fun HomeView(navController: NavController) {
         }
     }
 
-    // Add this DisposableEffect to refresh when coming back to HomeView
+    // And replace them with this improved version:
     DisposableEffect(navController) {
-        val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
-            if (destination.route == Screen.Home.route) {
-                // Refresh when returning to Home screen
+        // Keep track of the previous destination to determine if we're truly returning to HomeView
+        var previousDestination = ""
+
+        val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
+            val currentRoute = destination.route ?: ""
+
+            // Only trigger refresh when returning to Home from another screen (not initial load)
+            if (currentRoute == Screen.Home.route && previousDestination != "" && previousDestination != Screen.Home.route) {
+                Log.d("HomeView", "Returning to HomeView from $previousDestination, forcing refresh")
+
+                // Force a refresh by incrementing the trigger and calling refresh with forceRefresh=true
                 refreshTrigger++
-                Log.d("HomeView", "Returning to HomeView, triggering refresh")
+                coroutineScope.launch {
+                    // Small delay to ensure the view is ready
+                    delay(100)
+                    restaurantViewModel.refreshRestaurants(context)
+                }
             }
+
+            // Record current destination as previous for next navigation event
+            previousDestination = currentRoute
         }
 
-        navController.addOnDestinationChangedListener(listener)
-        onDispose {
-            navController.removeOnDestinationChangedListener(listener)
-        }
-    }
-
-    // Refresh restaurants when returning to HomeView from LocationView
-    DisposableEffect(navController) {
-        val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
-            if (destination.route == Screen.Home.route) {
-                // Check if we're returning from the location screen
-                restaurantViewModel.loadRestaurants(context)
-            }
-        }
         navController.addOnDestinationChangedListener(listener)
         onDispose {
             navController.removeOnDestinationChangedListener(listener)
@@ -940,6 +941,8 @@ fun HomeView(navController: NavController) {
                     if (currentIndex < restaurantList.size) {
                         EnhancedRestaurantCard(
                             restaurant = restaurantList[currentIndex],
+                            // In the EnhancedRestaurantCard instantiation in HomeView, replace the onSwiped function with this improved version:
+
                             onSwiped = { direction ->
                                 // Mark card as swiping
                                 isCardSwiping = true
@@ -949,27 +952,34 @@ fun HomeView(navController: NavController) {
                                     val isLiked = direction == "Right"
                                     // Add await() here to ensure the swipe is recorded before moving on
                                     try {
+                                        Log.d("HomeView", "Recording swipe ${if (isLiked) "LIKE" else "DISLIKE"} for ${restaurantList[currentIndex].name}")
+
+                                        // Record the swipe and wait for completion
                                         SwipeQueryable.recordSwipe(restaurantList[currentIndex].id, restaurantList[currentIndex].name, isLiked)
 
-                                        // Small delay to ensure Firestore has time to register the swipe
+                                        // Remove the swiped restaurant from the current list immediately
+                                        val currentRestaurant = restaurantList[currentIndex]
+
+                                        // Wait for Firebase to register the change
                                         delay(300)
 
-                                        // Now refresh the list to remove the swiped restaurant
-                                        restaurantViewModel.loadRestaurants(context)
+                                        // Now refresh the list to ensure it's updated everywhere
+                                        restaurantViewModel.refreshRestaurants(context)
 
-                                        // Move to next restaurant with a slight delay
-                                        delay(50)
-                                        if (currentIndex < restaurantList.size - 1) {
-                                            currentIndex++
-                                        } else {
-                                            // If this was the last restaurant, there's nothing left to show
-                                            // We don't need to handle this specifically as the UI will show "You've seen all restaurants"
-                                        }
+                                        // Also remove the restaurant from our local list to ensure immediate visual feedback
+                                        restaurantList.remove(currentRestaurant)
+
+                                        // If this was the last restaurant, there's nothing left to show
+                                        // Otherwise, we don't need to increment the index since removing the current item
+                                        // effectively makes the next item appear at the current index
 
                                         // Reset swiping state
                                         isCardSwiping = false
+
+                                        // Force UI update (even though state should have changed already)
+                                        refreshTrigger++
                                     } catch (e: Exception) {
-                                        Log.e("HomeView", "Error recording swipe: ${e.message}")
+                                        Log.e("HomeView", "Error recording swipe: ${e.message}", e)
                                         isCardSwiping = false
                                     }
                                 }
