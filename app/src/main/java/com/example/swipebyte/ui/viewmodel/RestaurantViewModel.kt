@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.data.repository.RestaurantRepository
 import com.example.swipebyte.ui.data.models.Restaurant
+import com.example.swipebyte.ui.data.models.SwipeQueryable
 import com.example.swipebyte.ui.data.models.UserQueryable
 import com.google.firebase.firestore.GeoPoint
 import kotlinx.coroutines.launch
@@ -35,7 +36,9 @@ class RestaurantViewModel : ViewModel() {
                 val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
                 val searchRadius = sharedPrefs.getFloat("location_radius", 5.0f).toDouble()
 
-                Log.d("RestaurantViewModel", "Loading restaurants with max distance: $searchRadius km")
+                // Get recently swiped restaurants (within the last 24 hours)
+                val recentSwipes = SwipeQueryable.getRecentSwipes()
+                Log.d("RestaurantViewModel", "Found ${recentSwipes.size} recently swiped restaurants")
 
                 // Get restaurants with distance filtering
                 val result = repository.getRestaurants(
@@ -45,13 +48,19 @@ class RestaurantViewModel : ViewModel() {
                     context = context
                 )
 
+                // Filter out recently swiped restaurants
+                val filteredResult = result.filter { restaurant ->
+                    !recentSwipes.containsKey(restaurant.id)
+                }
+
                 // Sort results by distance (closest first)
-                val sortedResult = result.sortedBy { it.distance }
+                val sortedResult = filteredResult.sortedBy { it.distance }
 
                 _restaurants.value = sortedResult
                 _isLoading.value = false
 
-                Log.d("RestaurantViewModel", "Loaded ${result.size} restaurants after distance filtering")
+                Log.d("RestaurantViewModel", "Loaded ${result.size} total restaurants")
+                Log.d("RestaurantViewModel", "After filtering out recently swiped: ${filteredResult.size} restaurants")
 
                 // Log the first few restaurants and their distances for debugging
                 sortedResult.take(5).forEach { restaurant ->

@@ -66,6 +66,14 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.isActive
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -747,6 +755,15 @@ fun HomeView(navController: NavController) {
         restaurantList.addAll(restaurants)
     }
 
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            // Wait 15 minutes before refreshing
+            delay(15*60 * 1000)
+            Log.d("HomeView", "Auto-refreshing restaurant list to check for newly available restaurants")
+            restaurantViewModel.loadRestaurants(context)
+        }
+    }
+
     // Refresh restaurants when returning to HomeView from LocationView
     DisposableEffect(navController) {
         val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
@@ -830,8 +847,54 @@ fun HomeView(navController: NavController) {
                 }
             } else if (restaurantList.isEmpty()) {
                 // Show empty state when no restaurants are available
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No restaurants found nearby.")
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.RestaurantMenu,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "No new restaurants available",
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Check back later for new restaurants. Restaurants you've swiped on will become available again after 24 hours.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { restaurantViewModel.refreshRestaurants(context) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh"
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Refresh")
+                        }
+                    }
                 }
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {

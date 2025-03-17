@@ -1,8 +1,10 @@
 package com.example.swipebyte.ui.data.models
 
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 
 data class UserSwipe(
     val userId: String = "",
@@ -23,6 +25,34 @@ class SwipeQueryable {
         fun getUserSwipes(userId: String, callback: (List<DocumentSnapshot>) -> Unit) {
             userSwipesCollection.whereEqualTo("userId", userId).get()
                 .addOnSuccessListener { documents -> callback(documents.documents) }
+        }
+
+        // New function: Get swipes from the last 24 hours
+        suspend fun getRecentSwipes(timeframeMillis: Long = 24 * 60 * 60 * 1000): Map<String, Long> {
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return emptyMap()
+            val currentTime = System.currentTimeMillis()
+            val cutoffTime = currentTime - timeframeMillis
+
+            return try {
+                val swipesDocs = userSwipesCollection
+                    .whereEqualTo("userId", currentUserId)
+                    .whereGreaterThan("timestamp", cutoffTime)
+                    .get()
+                    .await()
+
+                val recentSwipes = mutableMapOf<String, Long>()
+                for (doc in swipesDocs.documents) {
+                    val restaurantId = doc.getString("restaurantId") ?: continue
+                    val timestamp = doc.getLong("timestamp") ?: continue
+                    recentSwipes[restaurantId] = timestamp
+                }
+
+                Log.d("SwipeRepo", "Found ${recentSwipes.size} recent swipes within last ${timeframeMillis / (60 * 60 * 1000)} hours")
+                recentSwipes
+            } catch (e: Exception) {
+                Log.e("SwipeRepo", "Error getting recent swipes", e)
+                emptyMap()
+            }
         }
 
         suspend fun recordSwipe(restaurantId: String, restaurantName: String, isLiked: Boolean) {
