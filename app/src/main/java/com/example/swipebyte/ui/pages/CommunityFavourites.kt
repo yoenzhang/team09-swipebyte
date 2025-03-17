@@ -7,8 +7,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,12 +37,17 @@ import com.example.swipebyte.ui.pages.RestaurantInfoScreen
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-
 @Composable
 fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFavouritesViewModel = viewModel()) {
     var isLoading by remember { mutableStateOf(true) }
     val favoriteRestaurants by viewModel.favorites.collectAsState(initial = emptyList())
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
+    var showFilterDialog by remember { mutableStateOf(false) }
+
+    // Filter states
+    var timeFilter by remember { mutableStateOf("Last 24 hours") }
+    var selectedCuisines by remember { mutableStateOf(setOf<String>()) }
+    var selectedCosts by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(Unit) {
         try {
@@ -47,6 +56,19 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
             Log.e("CommunityFavourites", "Error fetching community favorites: ${e.message}")
         } finally {
             isLoading = false
+        }
+    }
+
+    // Apply filters to the restaurant list
+    val filteredRestaurants = remember(favoriteRestaurants, timeFilter, selectedCuisines, selectedCosts) {
+        favoriteRestaurants.filter { restaurant ->
+            val cuisineCondition = if (selectedCuisines.isEmpty()) true
+            else restaurant.cuisineType.any { it in selectedCuisines }
+
+            val costCondition = if (selectedCosts.isEmpty()) true
+            else restaurant.priceRange?.trim() in selectedCosts
+
+            cuisineCondition && costCondition
         }
     }
 
@@ -93,23 +115,40 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
                 Spacer(modifier = Modifier.weight(1f))
             }
         }
-        // Main content
-        Column(
+
+        // Header row with title and filter button
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.Start
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = "Community Favorites",
                 style = MaterialTheme.typography.headlineMedium
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            IconButton(onClick = { showFilterDialog = true }) {
+                Icon(
+                    imageVector = Icons.Default.FilterList,
+                    contentDescription = "Filter",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        // Main content
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else if (favoriteRestaurants.isEmpty()) {
+            } else if (filteredRestaurants.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No community favorites found")
                 }
@@ -119,7 +158,7 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
-                    items(favoriteRestaurants) { restaurant ->
+                    items(filteredRestaurants) { restaurant ->
                         CommunityFavouriteCard(
                             restaurant = restaurant,
                             onClick = { selectedRestaurant = restaurant }
@@ -129,6 +168,21 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
             }
         }
     }
+
+    // Show filter dialog
+    if (showFilterDialog) {
+        CommunityFavouritesFilterDialog(
+            timeFilter = timeFilter,
+            onTimeFilterChange = { timeFilter = it },
+            selectedCuisines = selectedCuisines,
+            onCuisinesChange = { selectedCuisines = it },
+            selectedCosts = selectedCosts,
+            onCostsChange = { selectedCosts = it },
+            onApply = { showFilterDialog = false },
+            onDismiss = { showFilterDialog = false }
+        )
+    }
+
     // Show restaurant info dialog when a restaurant is selected
     if (selectedRestaurant != null) {
         Dialog(
@@ -138,6 +192,117 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
             RestaurantInfoScreen(restaurant = selectedRestaurant!!, onDismiss = { selectedRestaurant = null })
         }
     }
+}
+
+@Composable
+fun CommunityFavouritesFilterDialog(
+    timeFilter: String,
+    onTimeFilterChange: (String) -> Unit,
+    selectedCuisines: Set<String>,
+    onCuisinesChange: (Set<String>) -> Unit,
+    selectedCosts: Set<String>,
+    onCostsChange: (Set<String>) -> Unit,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Filter Community Favorites") },
+        text = {
+            Box(
+                modifier = Modifier
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Column {
+                    Text("Time Filter", style = MaterialTheme.typography.titleMedium)
+                    val timeOptions = listOf("Last 24 hours", "All Time")
+                    timeOptions.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onTimeFilterChange(option) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = (timeFilter == option),
+                                onClick = { onTimeFilterChange(option) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(option)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Cuisine Preferences", style = MaterialTheme.typography.titleMedium)
+                    val allCuisines = listOf("Italian", "Chinese", "Mexican", "Indian", "American", "Japanese", "Thai")
+                    allCuisines.forEach { cuisine ->
+                        val isSelected = cuisine in selectedCuisines
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newSet = selectedCuisines.toMutableSet()
+                                    if (isSelected) newSet.remove(cuisine) else newSet.add(cuisine)
+                                    onCuisinesChange(newSet)
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { checked ->
+                                    val newSet = selectedCuisines.toMutableSet()
+                                    if (checked) newSet.add(cuisine) else newSet.remove(cuisine)
+                                    onCuisinesChange(newSet)
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(cuisine)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Cost Preferences", style = MaterialTheme.typography.titleMedium)
+                    val costOptions = listOf("$", "$$", "$$$", "$$$$")
+                    costOptions.forEach { cost ->
+                        val isSelected = cost in selectedCosts
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newSet = selectedCosts.toMutableSet()
+                                    if (isSelected) newSet.remove(cost) else newSet.add(cost)
+                                    onCostsChange(newSet)
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { checked ->
+                                    val newSet = selectedCosts.toMutableSet()
+                                    if (checked) newSet.add(cost) else newSet.remove(cost)
+                                    onCostsChange(newSet)
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(cost)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onApply) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
