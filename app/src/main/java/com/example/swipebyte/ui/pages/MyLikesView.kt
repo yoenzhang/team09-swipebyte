@@ -53,6 +53,11 @@ fun MyLikesView(
     var showFilterDialog by remember { mutableStateOf(false) }
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
 
+    // Keep original values to restore if dialog is canceled
+    var originalTimeFilter by remember { mutableStateOf(timeFilter) }
+    var originalSelectedCuisines by remember { mutableStateOf(selectedCuisines) }
+    var originalSelectedCosts by remember { mutableStateOf(selectedCosts) }
+
     LaunchedEffect(Unit) {
         isLoading = true
         myLikesViewModel.fetchUserSwipedRestaurants(userId)
@@ -136,7 +141,13 @@ fun MyLikesView(
                 text = "My Likes",
                 style = MaterialTheme.typography.headlineMedium
             )
-            IconButton(onClick = { showFilterDialog = true }) {
+            IconButton(onClick = {
+                // Save original values when opening the dialog
+                originalTimeFilter = timeFilter
+                originalSelectedCuisines = selectedCuisines
+                originalSelectedCosts = selectedCosts
+                showFilterDialog = true
+            }) {
                 Icon(
                     imageVector = Icons.Default.FilterList,
                     contentDescription = "Filter",
@@ -153,7 +164,13 @@ fun MyLikesView(
                 selectedCosts = selectedCosts,
                 onCostsChange = { selectedCosts = it },
                 onApply = { showFilterDialog = false },
-                onDismiss = { showFilterDialog = false }
+                onDismiss = {
+                    // Restore original values when canceling
+                    timeFilter = originalTimeFilter
+                    selectedCuisines = originalSelectedCuisines
+                    selectedCosts = originalSelectedCosts
+                    showFilterDialog = false
+                }
             )
         }
         // List of liked restaurants
@@ -198,77 +215,6 @@ fun MyLikesView(
                 restaurant = selectedRestaurant!!,
                 onDismiss = { selectedRestaurant = null }
             )
-        }
-    }
-}
-
-@Composable
-fun LikedRestaurantCard(restaurant: Restaurant, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-            ) {
-                if (restaurant.imageUrls.isNotEmpty()) {
-                    Image(
-                        painter = rememberAsyncImagePainter(model = restaurant.imageUrls.first()),
-                        contentDescription = restaurant.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f))
-                )
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = restaurant.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                }
-            }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = restaurant.cuisineType.joinToString(", "),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = "⭐ ${restaurant.averageRating}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "${restaurant.distance} km away",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
-            }
         }
     }
 }
@@ -383,3 +329,75 @@ fun MyLikesFilterDialog(
         }
     )
 }
+
+@Composable
+fun LikedRestaurantCard(restaurant: Restaurant, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+            ) {
+                if (restaurant.imageUrls.isNotEmpty()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = restaurant.imageUrls.first()),
+                        contentDescription = restaurant.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f))
+                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = restaurant.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = restaurant.cuisineType.joinToString(", "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "⭐ ${restaurant.averageRating}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${restaurant.distance} km away",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+        }
+    }
+}
+

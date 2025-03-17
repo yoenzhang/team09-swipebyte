@@ -45,9 +45,14 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
     var showFilterDialog by remember { mutableStateOf(false) }
 
     // Filter states
-    var timeFilter by remember { mutableStateOf("Last 24 hours") }
+    var timeFilter by remember { mutableStateOf("All Time") }
     var selectedCuisines by remember { mutableStateOf(setOf<String>()) }
     var selectedCosts by remember { mutableStateOf(setOf<String>()) }
+
+    // Original filter states to restore if canceled
+    var originalTimeFilter by remember { mutableStateOf(timeFilter) }
+    var originalSelectedCuisines by remember { mutableStateOf(selectedCuisines) }
+    var originalSelectedCosts by remember { mutableStateOf(selectedCosts) }
 
     LaunchedEffect(Unit) {
         try {
@@ -128,7 +133,13 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
                 text = "Community Favorites",
                 style = MaterialTheme.typography.headlineMedium
             )
-            IconButton(onClick = { showFilterDialog = true }) {
+            IconButton(onClick = {
+                // Save original values when opening the dialog
+                originalTimeFilter = timeFilter
+                originalSelectedCuisines = selectedCuisines
+                originalSelectedCosts = selectedCosts
+                showFilterDialog = true
+            }) {
                 Icon(
                     imageVector = Icons.Default.FilterList,
                     contentDescription = "Filter",
@@ -178,8 +189,17 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
             onCuisinesChange = { selectedCuisines = it },
             selectedCosts = selectedCosts,
             onCostsChange = { selectedCosts = it },
-            onApply = { showFilterDialog = false },
-            onDismiss = { showFilterDialog = false }
+            onApply = {
+                // Just close the dialog, changes are already applied
+                showFilterDialog = false
+            },
+            onDismiss = {
+                // Restore original values when canceling
+                timeFilter = originalTimeFilter
+                selectedCuisines = originalSelectedCuisines
+                selectedCosts = originalSelectedCosts
+                showFilterDialog = false
+            }
         )
     }
 
