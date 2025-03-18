@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.data.repository.RestaurantRepository
 import com.example.swipebyte.ui.data.models.Restaurant
+import com.example.swipebyte.ui.data.models.SwipeQueryable
 import com.example.swipebyte.ui.data.models.UserQueryable
 import com.google.firebase.firestore.GeoPoint
 import kotlinx.coroutines.launch
@@ -35,7 +36,14 @@ class RestaurantViewModel : ViewModel() {
                 val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
                 val searchRadius = sharedPrefs.getFloat("location_radius", 5.0f).toDouble()
 
-                Log.d("RestaurantViewModel", "Loading restaurants with max distance: $searchRadius km")
+                // Get recently swiped restaurants (within the last 24 hours)
+                val recentSwipes = SwipeQueryable.getRecentSwipes()
+                Log.d("RestaurantViewModel", "Found ${recentSwipes.size} recently swiped restaurants")
+
+                // Log each swiped restaurant ID for debugging
+                recentSwipes.forEach { (id, timestamp) ->
+                    Log.d("RestaurantViewModel", "Recently swiped: Restaurant ID $id at ${java.util.Date(timestamp)}")
+                }
 
                 // Get restaurants with distance filtering
                 val result = repository.getRestaurants(
@@ -45,17 +53,34 @@ class RestaurantViewModel : ViewModel() {
                     context = context
                 )
 
+                Log.d("RestaurantViewModel", "Before filtering: ${result.size} restaurants")
+
+                // Debug log each restaurant to check
+                result.forEach { restaurant ->
+                    val isSwiped = recentSwipes.containsKey(restaurant.id)
+                    Log.d("RestaurantViewModel", "Restaurant ${restaurant.name} (ID: ${restaurant.id}) - Was swiped: $isSwiped")
+                }
+
+                // Filter out recently swiped restaurants
+                val filteredResult = result.filter { restaurant ->
+                    val keepRestaurant = !recentSwipes.containsKey(restaurant.id)
+                    if (!keepRestaurant) {
+                        Log.d("RestaurantViewModel", "Filtering out swiped restaurant: ${restaurant.name} (ID: ${restaurant.id})")
+                    }
+                    keepRestaurant
+                }
+
                 // Sort results by distance (closest first)
-                val sortedResult = result.sortedBy { it.distance }
+                val sortedResult = filteredResult.sortedBy { it.distance }
+
+                Log.d("RestaurantViewModel", "After filtering: ${filteredResult.size} restaurants remain")
 
                 _restaurants.value = sortedResult
                 _isLoading.value = false
 
-                Log.d("RestaurantViewModel", "Loaded ${result.size} restaurants after distance filtering")
-
                 // Log the first few restaurants and their distances for debugging
                 sortedResult.take(5).forEach { restaurant ->
-                    Log.d("RestaurantViewModel", "Restaurant: ${restaurant.name}, Distance: ${String.format("%.2f", restaurant.distance)} km")
+                    Log.d("RestaurantViewModel", "Final result - Restaurant: ${restaurant.name}, Distance: ${String.format("%.2f", restaurant.distance)} km")
                 }
 
             } catch (e: Exception) {
@@ -112,6 +137,7 @@ class RestaurantViewModel : ViewModel() {
 
     // Reload restaurants with fresh data
     fun refreshRestaurants(context: Context) {
+        Log.d("RestaurantViewModel", "Explicitly refreshing restaurants with forceRefresh=true")
         loadRestaurants(context, forceRefresh = true)
     }
 
