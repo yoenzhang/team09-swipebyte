@@ -29,24 +29,28 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.swipebyte.R
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.viewmodel.CommunityFavouritesViewModel
-import com.example.swipebyte.ui.pages.RestaurantInfoScreen
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.swipebyte.data.repository.RestaurantRepository
+import com.google.firebase.firestore.GeoPoint
+import java.util.Locale
 
 
 @Composable
 fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFavouritesViewModel = viewModel()) {
-    var isLoading by remember { mutableStateOf(true) }
+    val isLoading by viewModel.isLoading.collectAsState()
     val favoriteRestaurants by viewModel.favorites.collectAsState(initial = emptyList())
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
+    val repository = remember { RestaurantRepository() }
+    var userLocation by remember { mutableStateOf<GeoPoint?>(null) }
 
     LaunchedEffect(Unit) {
         try {
-            viewModel.fetchFavorites() // Trigger fetch of community favorites
+            val user = repository.getUserPreferences()
+            userLocation = user?.location
+            viewModel.firebaseSwipeListener(userLocation)
         } catch (e: Exception) {
             Log.e("CommunityFavourites", "Error fetching community favorites: ${e.message}")
-        } finally {
-            isLoading = false
         }
     }
 
@@ -122,7 +126,7 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
                     items(favoriteRestaurants) { restaurant ->
                         CommunityFavouriteCard(
                             restaurant = restaurant,
-                            onClick = { selectedRestaurant = restaurant }
+                            onClick = { selectedRestaurant = restaurant}
                         )
                     }
                 }
@@ -203,17 +207,27 @@ fun CommunityFavouriteCard(
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        text = "⭐ ${restaurant.averageRating}",
+                        text = String.format(Locale.US, "⭐%.1f", restaurant.yelpRating),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "${restaurant.distance} km away",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = String.format(Locale.US, "%.2f km away", restaurant.distance),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = String.format(Locale.US, "%s%d", if (restaurant.voteCount >= 0) "👍" else "👎", restaurant.voteCount),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }

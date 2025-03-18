@@ -2,7 +2,6 @@ package com.example.swipebyte.ui.pages
 
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
@@ -23,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,9 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import com.example.swipebyte.data.repository.RestaurantRepository
 import com.example.swipebyte.ui.data.models.Restaurant
-import com.example.swipebyte.ui.data.models.RestaurantQueryable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -63,7 +61,6 @@ import com.example.swipebyte.ui.data.models.YelpHours
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.RestaurantViewModel
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
 
@@ -282,6 +279,7 @@ fun EnhancedRestaurantCard(
                                     )
 
                                     onSwiped(direction)
+                                    // record swipe
                                     SwipeQueryable.recordSwipe(restaurant.id, restaurant.name, direction == "Right")
                                 }
                                 // Check if the vertical swipe threshold is met
@@ -596,7 +594,7 @@ fun EnhancedRestaurantCard(
                                     Spacer(modifier = Modifier.width(4.dp))
 
                                     Text(
-                                        text = String.format("%.1f", restaurant.yelpRating),
+                                        text = String.format(Locale.US, "%.1f", restaurant.yelpRating),
                                         style = MaterialTheme.typography.bodyMedium
                                     )
 
@@ -899,6 +897,10 @@ fun HomeView(navController: NavController) {
                                         // Mark card as swiping
                                         isCardSwiping = true
 
+                                        // record swipe from button
+                                        val curRestaurant = restaurantList[currentIndex]
+                                        SwipeQueryable.recordSwipe(curRestaurant.id, curRestaurant.name, true)
+
                                         delay(10) // Wait for animation to complete
 
                                         // Move to next restaurant
@@ -916,6 +918,10 @@ fun HomeView(navController: NavController) {
                                         showDetailScreen = false
                                         // Mark card as swiping
                                         isCardSwiping = true
+
+                                        // record swipe from button
+                                        val curRestaurant = restaurantList[currentIndex]
+                                        SwipeQueryable.recordSwipe(curRestaurant.id, curRestaurant.name, false)
 
                                         delay(10) // Wait for animation to complete
 
@@ -1000,7 +1006,7 @@ fun RestaurantDetailScreen(
                         .align(Alignment.TopStart)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = Color.White
                     )
@@ -1056,7 +1062,7 @@ fun RestaurantDetailScreen(
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Text(
-                            text = String.format("%.1f", restaurant.yelpRating) + " ⭐",
+                            text = String.format(Locale.US, "%.1f", restaurant.yelpRating) + " ⭐",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -1073,7 +1079,7 @@ fun RestaurantDetailScreen(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Description
                 Text(
@@ -1087,7 +1093,7 @@ fun RestaurantDetailScreen(
                     style = MaterialTheme.typography.bodyMedium
                 )
 
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
                 // Details section
                 Text(
@@ -1099,7 +1105,7 @@ fun RestaurantDetailScreen(
                 DetailRow(
                     icon = Icons.Default.LocationOn,
                     title = "Address",
-                    value = restaurant.address ?: "123 Main Street",
+                    value = restaurant.address ,
                     isClickable = true
                 )
 
@@ -1108,16 +1114,16 @@ fun RestaurantDetailScreen(
                 DetailRow(
                     icon = Icons.Default.Phone,
                     title = "Phone",
-                    value = restaurant.phone ?: "(123) 456-7890"
+                    value = restaurant.phone
                 )
 
                 DetailRow(
                     icon = Icons.Default.DateRange,
                     title = "Website",
-                    value = restaurant.url ?: "www.restaurant.com"
+                    value = restaurant.url
                 )
 
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
                 // Extra space at bottom to ensure content is visible above buttons
                 Spacer(modifier = Modifier.height(80.dp))
