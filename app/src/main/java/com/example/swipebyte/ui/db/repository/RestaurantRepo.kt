@@ -6,7 +6,6 @@ import com.example.swipebyte.ui.data.models.YelpResponse
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.data.models.YelpBusiness
 import com.example.swipebyte.ui.data.models.YelpBusinessDetailsResponse
-import com.example.swipebyte.ui.data.models.YelpCategory
 import com.example.swipebyte.ui.data.models.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
@@ -67,7 +66,7 @@ class RestaurantRepository {
     private val yelpApiKey = "pmie5_FVr0xgJsJyZWnmVRKF2WoTPQFH7iOaO7CUTMoQeqDlX54gvf0ql4ZbS89usMdSrExV9nbsmIXiYN7_h-RNWguknSTJ_KlwGsfaDEwnpOrssaBEwXqs_-XFZ3Yx"
 
     // Get current user preferences
-    private suspend fun getUserPreferences(): User? {
+    suspend fun getUserPreferences(): User? {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return null
 
         return try {
@@ -93,7 +92,7 @@ class RestaurantRepository {
     }
 
     // Calculate distance between two points using Haversine formula
-    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val earthRadius = 6371.0 // Earth's radius in kilometers
 
         val dLat = Math.toRadians(lat2 - lat1)
@@ -331,8 +330,8 @@ class RestaurantRepository {
                 imageUrls = business.image_url?.let { listOf(it) } ?: emptyList(),
                 cuisineType = business.categories.map { it.title },
                 location = GeoPoint(business.coordinates.latitude, business.coordinates.longitude),
-                url = business.url ?: "",
-                phone = business.phone ?: "",
+                url = business.url,
+                phone = business.phone,
                 address = formatAddress(business)
             )
         }
@@ -355,7 +354,7 @@ class RestaurantRepository {
     private fun formatAddress(business: YelpBusiness): String {
         val location = business.location
         val addressParts = mutableListOf<String>()
-        location?.let {
+        location.let {
             it.address1?.takeIf { address -> address.isNotEmpty() }?.let { address -> addressParts.add(address) }
             if (it.city != null && it.state != null && it.zip_code != null) {
                 addressParts.add("${it.city}, ${it.state} ${it.zip_code}")

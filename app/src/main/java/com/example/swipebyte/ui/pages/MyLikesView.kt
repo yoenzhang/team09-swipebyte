@@ -1,5 +1,6 @@
 package com.example.swipebyte.ui.pages
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,12 +37,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.swipebyte.R
+import com.example.swipebyte.data.repository.RestaurantRepository
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.MyLikesViewModel
 // Import your RestaurantInfoScreen composable
 import com.example.swipebyte.ui.pages.RestaurantInfoScreen
 import com.example.swipebyte.ui.viewmodel.FriendViewModel
+import com.google.firebase.firestore.GeoPoint
+import java.util.Locale
 
 @Composable
 fun MyLikesView(
@@ -57,6 +61,9 @@ fun MyLikesView(
     var selectedCuisines by remember { mutableStateOf(setOf<String>()) }
     var selectedCosts by remember { mutableStateOf(setOf<String>()) }
     var showFilterDialog by remember { mutableStateOf(false) }
+    var userLocation by remember { mutableStateOf<GeoPoint?>(null) }
+    val repository = remember { RestaurantRepository() }
+
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
 
     // State to track which view to display
@@ -72,6 +79,19 @@ fun MyLikesView(
     var originalTimeFilter by remember { mutableStateOf(timeFilter) }
     var originalSelectedCuisines by remember { mutableStateOf(selectedCuisines) }
     var originalSelectedCosts by remember { mutableStateOf(selectedCosts) }
+
+    LaunchedEffect(Unit) {
+        isLoading = true
+        try {
+            // Fetch user location
+            val user = repository.getUserPreferences()
+            userLocation = user?.location
+            myLikesViewModel.fetchUserSwipedRestaurants(userId)
+        } catch (e: Exception) {
+            Log.e("MyLikesView", "Error fetching data: ${e.message}")
+        }
+        isLoading = false
+    }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -262,8 +282,10 @@ fun MyLikesView(
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                                 contentPadding = PaddingValues(bottom = 16.dp)
                             ) {
-                                items(filteredRestaurants) { restaurant ->
-                                    LikedRestaurantCard(restaurant) { selectedRestaurant = restaurant }
+                                items(likedRestaurants) { restaurant ->
+                                    LikedRestaurantCard(restaurant = restaurant, userLocation = userLocation) {
+                                        selectedRestaurant = restaurant
+                                    }
                                 }
                             }
                         }
@@ -488,7 +510,7 @@ fun MyLikesFilterDialog(
 }
 
 @Composable
-fun LikedRestaurantCard(restaurant: Restaurant, onClick: () -> Unit) {
+fun LikedRestaurantCard(restaurant: Restaurant, userLocation: GeoPoint?, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -542,19 +564,37 @@ fun LikedRestaurantCard(restaurant: Restaurant, onClick: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        text = "⭐ ${restaurant.averageRating}",
+                        text = String.format(Locale.US, "⭐%.1f", restaurant.yelpRating),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "${restaurant.distance} km away",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = calculateDistance(userLocation, restaurant.location),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
             }
         }
     }
 }
+
+fun calculateDistance(userLocation: GeoPoint?, restaurantLocation: GeoPoint?): String {
+    if (userLocation == null || restaurantLocation == null) return "Distance unknown"
+
+    val userLat = userLocation.latitude
+    val userLng = userLocation.longitude
+    val restLat = restaurantLocation.latitude
+    val restLng = restaurantLocation.longitude
+
+    val results = FloatArray(1)
+    android.location.Location.distanceBetween(userLat, userLng, restLat, restLng, results)
+    val distanceKm = results[0] / 1000.0  // Convert meters to kilometers
+
+    return String.format(Locale.US, "%.2f km away", distanceKm)
+}
+
 
