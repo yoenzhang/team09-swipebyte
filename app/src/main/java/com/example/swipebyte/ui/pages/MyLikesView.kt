@@ -41,8 +41,6 @@ import com.example.swipebyte.data.repository.RestaurantRepository
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.MyLikesViewModel
-// Import your RestaurantInfoScreen composable
-import com.example.swipebyte.ui.pages.RestaurantInfoScreen
 import com.example.swipebyte.ui.viewmodel.FriendViewModel
 import com.google.firebase.firestore.GeoPoint
 import java.util.Locale
@@ -109,6 +107,7 @@ fun MyLikesView(
 
     val oneDayMillis = 24 * 60 * 60 * 1000L
     val currentTime = System.currentTimeMillis()
+    // Compute filtered list based on time, cuisine and cost filters
     val filteredRestaurants = remember(likedRestaurants, timestampsMap, timeFilter, selectedCuisines, selectedCosts) {
         likedRestaurants.filter { restaurant ->
             val restId = restaurant.id ?: return@filter false
@@ -123,6 +122,11 @@ fun MyLikesView(
             else restaurant.priceRange?.trim() in selectedCosts
             timeCondition && cuisineCondition && costCondition
         }
+    }
+
+    // Sort the filtered restaurants by most recent like (timestamp descending)
+    val sortedFilteredRestaurants = filteredRestaurants.sortedByDescending { restaurant ->
+        timestampsMap[restaurant.id] ?: 0L
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -258,7 +262,7 @@ fun MyLikesView(
                         }
                     )
                 }
-                // List of liked restaurants
+                // List of liked restaurants using the filtered and sorted list
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -271,7 +275,7 @@ fun MyLikesView(
                                 CircularProgressIndicator()
                             }
                         }
-                        filteredRestaurants.isEmpty() -> {
+                        sortedFilteredRestaurants.isEmpty() -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("No liked restaurants found")
                             }
@@ -282,8 +286,14 @@ fun MyLikesView(
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                                 contentPadding = PaddingValues(bottom = 16.dp)
                             ) {
-                                items(likedRestaurants) { restaurant ->
-                                    LikedRestaurantCard(restaurant = restaurant, userLocation = userLocation) {
+                                items(sortedFilteredRestaurants) { restaurant ->
+                                    // Retrieve the like timestamp for this restaurant (if available)
+                                    val ts = timestampsMap[restaurant.id]
+                                    LikedRestaurantCard(
+                                        restaurant = restaurant,
+                                        likedTimestamp = ts,
+                                        userLocation = userLocation
+                                    ) {
                                         selectedRestaurant = restaurant
                                     }
                                 }
@@ -510,7 +520,12 @@ fun MyLikesFilterDialog(
 }
 
 @Composable
-fun LikedRestaurantCard(restaurant: Restaurant, userLocation: GeoPoint?, onClick: () -> Unit) {
+fun LikedRestaurantCard(
+    restaurant: Restaurant,
+    likedTimestamp: Long?, // New parameter for the like time
+    userLocation: GeoPoint?,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -537,6 +552,36 @@ fun LikedRestaurantCard(restaurant: Restaurant, userLocation: GeoPoint?, onClick
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = 0.3f))
                 )
+                // Badge for like timestamp (only display if timestamp is available)
+                likedTimestamp?.let { ts ->
+                    val currentTime = System.currentTimeMillis()
+                    val diffMillis = currentTime - ts
+                    val diffMinutes = diffMillis / (60 * 1000)
+                    val badgeText = when {
+                        diffMinutes < 60 -> "liked ${if (diffMinutes < 1) 1 else diffMinutes} min ago"
+                        diffMinutes < 1440 -> {
+                            val diffHours = diffMinutes / 60
+                            "liked ${if (diffHours < 1) 1 else diffHours} hour${if (diffHours > 1) "s" else ""} ago"
+                        }
+                        else -> {
+                            val diffDays = diffMinutes / 1440
+                            "liked ${if (diffDays < 1) 1 else diffDays} day${if (diffDays > 1) "s" else ""} ago"
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(8.dp))
+                    ) {
+                        Text(
+                            text = badgeText,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -596,5 +641,3 @@ fun calculateDistance(userLocation: GeoPoint?, restaurantLocation: GeoPoint?): S
 
     return String.format(Locale.US, "%.2f km away", distanceKm)
 }
-
-
