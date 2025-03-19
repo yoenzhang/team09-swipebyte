@@ -55,9 +55,9 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
     var selectedCosts by remember { mutableStateOf(setOf<String>()) }
 
     // Original filter states to restore if canceled
-    var originalTimeFilter by remember { mutableStateOf(timeFilter) }
-    var originalSelectedCuisines by remember { mutableStateOf(selectedCuisines) }
-    var originalSelectedCosts by remember { mutableStateOf(selectedCosts) }
+    var originalTimeFilter = timeFilter
+    var originalSelectedCuisines = selectedCuisines
+    var originalSelectedCosts = selectedCosts
 
     LaunchedEffect(Unit) {
         try {
@@ -65,18 +65,15 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
             userLocation = user?.location
             viewModel.firebaseSwipeListener(userLocation)
         } catch (e: Exception) {
-            Log.e("CommunityFavourites", "Error fetching community favorites: ${e.message}")
+            Log.e("CommunityFavourites", "Error fetching community favorites")
         }
     }
 
-    // Apply filters to the restaurant list
+    // Filter restaurants based on cuisine and cost
     val filteredRestaurants = remember(favoriteRestaurants, timeFilter, selectedCuisines, selectedCosts) {
         favoriteRestaurants.filter { restaurant ->
-            val cuisineCondition = if (selectedCuisines.isEmpty()) true
-            else restaurant.cuisineType.any { it in selectedCuisines }
-
-            val costCondition = if (selectedCosts.isEmpty()) true
-            else restaurant.priceRange?.trim() in selectedCosts
+            val cuisineCondition = selectedCuisines.isEmpty() || restaurant.cuisineType.any { it in selectedCuisines }
+            val costCondition = selectedCosts.isEmpty() || restaurant.priceRange?.trim() in selectedCosts
 
             cuisineCondition && costCondition
         }
@@ -194,10 +191,7 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
             onCuisinesChange = { selectedCuisines = it },
             selectedCosts = selectedCosts,
             onCostsChange = { selectedCosts = it },
-            onApply = {
-                // Just close the dialog, changes are already applied
-                showFilterDialog = false
-            },
+            onApply = { showFilterDialog = false },
             onDismiss = {
                 // Restore original values when canceling
                 timeFilter = originalTimeFilter
@@ -408,8 +402,9 @@ fun CommunityFavouriteCard(
                         color = Color.Gray
                     )
                     Spacer(modifier = Modifier.weight(1f))
+                    val voteEmoji = if (restaurant.voteCount >= 0) "👍" else "👎"
                     Text(
-                        text = String.format(Locale.US, "%s%d", if (restaurant.voteCount >= 0) "👍" else "👎", restaurant.voteCount),
+                        text = "$voteEmoji ${restaurant.voteCount}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
