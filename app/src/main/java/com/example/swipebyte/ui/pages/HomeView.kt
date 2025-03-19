@@ -91,9 +91,9 @@ fun EnhancedRestaurantCard(
     val horizontalSwipeThreshold = 300f
     val verticalSwipeThreshold = 300f
 
-    var currentSwipeMessage = ""
-    var showMessageOverlay = false
-    var swipeDirection = ""
+    var currentSwipeMessage by remember { mutableStateOf("") }
+    var showMessageOverlay by remember { mutableStateOf(false) }
+    var swipeDirection by remember { mutableStateOf("") }
 
     // Gallery control
     val pagerState = rememberPagerState { 5 }
@@ -1020,7 +1020,7 @@ fun RestaurantDetailScreen(
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null
-                    ) { /* Do nothing, just consume the click */ }
+                    ) { /* Consume click */ }
             ) {
                 // Use first image from the list or fallback
                 val imageUrl = if (restaurant.imageUrls.isNotEmpty()) {
@@ -1129,7 +1129,7 @@ fun RestaurantDetailScreen(
                 )
 
                 Text(
-                    text = "A wonderful restaurant offering delicious food in a welcoming atmosphere. Perfect for enjoying a meal with friends and family.",
+                    text = "A wonderful restaurant.",
                     style = MaterialTheme.typography.bodyMedium
                 )
 
