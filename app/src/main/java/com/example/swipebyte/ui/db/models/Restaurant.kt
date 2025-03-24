@@ -1,9 +1,7 @@
 package com.example.swipebyte.ui.data.models
 
 import android.content.Context
-import kotlinx.coroutines.tasks.await
 import com.google.firebase.firestore.GeoPoint
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -23,7 +21,8 @@ data class Restaurant(
     val yelpRating: Float = 0f,
     var distance: Double = 0.0,
     val url: String = "",
-    val hours: List<YelpHours>? = emptyList()
+    val hours: List<YelpHours>? = emptyList(),
+    val voteCount: Int = 0
 )
 
 
@@ -44,10 +43,9 @@ class RestaurantQueryable {
             val longitude = curLocation?.longitude ?: 0.0
 
             // Get radius preference (default to 5 km if not set)
-            val radiusInKm = context?.let {
-                it.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
-                    .getFloat("location_radius", 5.0f).toDouble()
-            } ?: 5.0
+            val radiusInKm = context?.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
+                ?.getFloat("location_radius", 5.0f)?.toDouble()
+                ?: 5.0
 
             // Convert km to meters for distance calculation
             val radiusInMeters = radiusInKm * 1000

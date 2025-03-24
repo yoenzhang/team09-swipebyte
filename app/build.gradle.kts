@@ -80,6 +80,7 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.play.services.maps)
     implementation(libs.runtime.livedata)
+    implementation(libs.androidx.room.ktx)
 
     // **Testing Dependencies (Fixed Duplicates)**
     testImplementation(libs.junit.jupiter.v592) // ✅ No need for separate api/engine

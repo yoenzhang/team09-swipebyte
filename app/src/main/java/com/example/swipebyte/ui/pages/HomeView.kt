@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,9 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import com.example.swipebyte.data.repository.RestaurantRepository
 import com.example.swipebyte.ui.data.models.Restaurant
-import com.example.swipebyte.ui.data.models.RestaurantQueryable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -63,9 +62,18 @@ import com.example.swipebyte.ui.data.models.YelpHours
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.RestaurantViewModel
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.isActive
+import java.util.Calendar
+import androidx.compose.material.icons.filled.Refresh
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -83,45 +91,25 @@ fun EnhancedRestaurantCard(
     val horizontalSwipeThreshold = 300f
     val verticalSwipeThreshold = 300f
 
-    // Random message state
     var currentSwipeMessage by remember { mutableStateOf("") }
-
-    // Show message overlay state
     var showMessageOverlay by remember { mutableStateOf(false) }
-
-    // Direction state
     var swipeDirection by remember { mutableStateOf("") }
 
-    // Current image index for gallery
-    val pagerState = rememberPagerState { 5 } // 5 images max
+    // Gallery control
+    val pagerState = rememberPagerState { 5 }
 
-    // Important: Move this out of remember block so it updates when restaurant changes
-    // Get current restaurant's image URL
+    // Prepare image URLs
     val baseUrl = if (restaurant.imageUrls.isNotEmpty()) restaurant.imageUrls[0] else
         "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
 
-    val secondImage = if (restaurant.imageUrls.size > 1) restaurant.imageUrls[1] else
-        "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
+    val secondImage = if (restaurant.imageUrls.size > 1) restaurant.imageUrls[1] else baseUrl
+    val thirdImage = if (restaurant.imageUrls.size > 3) restaurant.imageUrls[2] else baseUrl
+    val fourthImage = if (restaurant.imageUrls.size > 4) restaurant.imageUrls[3] else baseUrl
+    val fifthImage = if (restaurant.imageUrls.size > 5) restaurant.imageUrls[4] else baseUrl
 
-    val thirdImage = if (restaurant.imageUrls.size > 3) restaurant.imageUrls[2] else
-        "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
+    val imageUrls = listOf(baseUrl, secondImage, thirdImage, fourthImage, fifthImage)
 
-    val fourthImage = if (restaurant.imageUrls.size > 4) restaurant.imageUrls[3] else
-        "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
-
-    val fifthImage = if (restaurant.imageUrls.size > 5) restaurant.imageUrls[4] else
-        "https://images.unsplash.com/photo-1514933651103-005eec06c04b"
-
-    // Generate image URLs list with the current restaurant's image as the first one
-    val imageUrls = listOf(
-        baseUrl,
-        secondImage,
-        thirdImage,
-        fourthImage,
-        fifthImage
-    )
-
-    // List of random positive messages for right swipe
+    // Swipe message lists
     val positiveMessages = listOf(
         "Okay buddy!",
         "Great choice!",
@@ -135,7 +123,6 @@ fun EnhancedRestaurantCard(
         "Food coma incoming!"
     )
 
-    // List of random negative messages for left swipe
     val negativeMessages = listOf(
         "Loser...",
         "Alright, don't go",
@@ -149,13 +136,12 @@ fun EnhancedRestaurantCard(
         "The restaurant dodged a bullet"
     )
 
-    // Reset animation state when the restaurant changes
+    // Reset state when restaurant changes
     LaunchedEffect(restaurant.id) {
         offsetX.snapTo(0f)
         offsetY.snapTo(0f)
         currentSwipeMessage = ""
         showMessageOverlay = false
-        // Also reset pager state when restaurant changes
         pagerState.scrollToPage(0)
     }
 
@@ -175,10 +161,10 @@ fun EnhancedRestaurantCard(
 
     val backgroundColor by animateColorAsState(
         targetValue = when {
-            offsetX.value > 100 -> Color(0x1500FF00) // Light green for right swipe
-            offsetX.value < -100 -> Color(0x15FF0000) // Light red for left swipe
-            offsetY.value < -100 -> Color(0x150000FF) // Light blue for up swipe
-            offsetY.value > 100 -> Color(0x15FF00FF) // Light purple for down swipe
+            offsetX.value > 100 -> Color(0x1500FF00) // Green for right swipe
+            offsetX.value < -100 -> Color(0x15FF0000) // Red for left swipe
+            offsetY.value < -100 -> Color(0x150000FF) // Blue for up swipe
+            offsetY.value > 100 -> Color(0x15FF00FF) // Purple for down swipe
             else -> Color.Transparent
         },
         animationSpec = tween(durationMillis = 100)
@@ -190,17 +176,17 @@ fun EnhancedRestaurantCard(
             .background(backgroundColor)
             .padding(16.dp)
     ) {
-        // Show swipe message overlay
+        // Swipe message overlay
         if (showMessageOverlay) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         color = when (swipeDirection) {
-                            "Right" -> Color(0xFF4CAF50).copy(alpha = 0.5f) // Semi-transparent green
-                            "Left" -> Color(0xFFF44336).copy(alpha = 0.5f) // Semi-transparent red
-                            "Up" -> Color(0xFF2196F3).copy(alpha = 0.5f) // Semi-transparent blue
-                            "Down" -> Color(0xFF9C27B0).copy(alpha = 0.5f) // Semi-transparent purple
+                            "Right" -> Color(0xFF4CAF50).copy(alpha = 0.5f)
+                            "Left" -> Color(0xFFF44336).copy(alpha = 0.5f)
+                            "Up" -> Color(0xFF2196F3).copy(alpha = 0.5f)
+                            "Down" -> Color(0xFF9C27B0).copy(alpha = 0.5f)
                             else -> Color.Transparent
                         }
                     ),
@@ -222,7 +208,7 @@ fun EnhancedRestaurantCard(
             }
         }
 
-        // Main card with swipe gestures
+        // Main swipeable card
         Card(
             modifier = Modifier
                 .fillMaxSize()
@@ -237,7 +223,6 @@ fun EnhancedRestaurantCard(
                     scaleX = scale
                     scaleY = scale
                 }
-                // Combined horizontal and vertical gesture detection
                 .pointerInput(restaurant.id) {
                     var initialOffsetX = 0f
                     var initialOffsetY = 0f
@@ -249,33 +234,23 @@ fun EnhancedRestaurantCard(
                         },
                         onDragEnd = {
                             coroutineScope.launch {
-                                // Check if the horizontal swipe threshold is met
+                                // Handle horizontal swipe
                                 if (abs(offsetX.value) > horizontalSwipeThreshold && abs(offsetX.value) > abs(offsetY.value)) {
                                     val direction = if (offsetX.value > 0) "Right" else "Left"
                                     swipeDirection = direction
-
-                                    // Set a random message based on swipe direction
                                     currentSwipeMessage = if (direction == "Right") {
                                         positiveMessages.random()
                                     } else {
                                         negativeMessages.random()
                                     }
-
-                                    // Show the message overlay
                                     showMessageOverlay = true
 
                                     val targetValue = if (offsetX.value > 0) 1500f else -1500f
-
-                                    // First animate to show message
                                     offsetX.animateTo(
                                         targetValue = if (offsetX.value > 0) 500f else -500f,
                                         animationSpec = tween(durationMillis = 100)
                                     )
-
-                                    // Pause to show message
                                     delay(5)
-
-                                    // Then complete the animation
                                     offsetX.animateTo(
                                         targetValue = targetValue,
                                         animationSpec = tween(durationMillis = 200)
@@ -284,46 +259,35 @@ fun EnhancedRestaurantCard(
                                     onSwiped(direction)
                                     SwipeQueryable.recordSwipe(restaurant.id, restaurant.name, direction == "Right")
                                 }
-                                // Check if the vertical swipe threshold is met
+                                // Handle vertical swipe
                                 else if (abs(offsetY.value) > verticalSwipeThreshold && abs(offsetY.value) > abs(offsetX.value)) {
                                     val direction = if (offsetY.value < 0) "Up" else "Down"
                                     swipeDirection = direction
-
-                                    // Set a simple message for vertical swipes
                                     currentSwipeMessage = if (direction == "Up") {
                                         "Next restaurant!"
                                     } else {
                                         "Previous restaurant!"
                                     }
-
-                                    // Show the message overlay
                                     showMessageOverlay = true
 
                                     val targetValue = if (offsetY.value < 0) -1500f else 1500f
-
-                                    // First animate to show message
                                     offsetY.animateTo(
                                         targetValue = if (offsetY.value < 0) -500f else 500f,
                                         animationSpec = tween(durationMillis = 100)
                                     )
-
-                                    // Pause to show message
                                     delay(5)
-
-                                    // Then complete the animation
                                     offsetY.animateTo(
                                         targetValue = targetValue,
                                         animationSpec = tween(durationMillis = 200)
                                     )
 
-                                    // Call the appropriate vertical swipe function
                                     if (direction == "Up") {
                                         onSwipeUp()
                                     } else {
                                         onSwipeDown()
                                     }
                                 } else {
-                                    // Snap back to center if no threshold is met
+                                    // Return to center if no threshold met
                                     offsetX.animateTo(
                                         targetValue = 0f,
                                         animationSpec = spring(
@@ -346,24 +310,20 @@ fun EnhancedRestaurantCard(
                         onDrag = { change, dragAmount ->
                             change.consume()
                             coroutineScope.launch {
-                                // Determine whether this is more of a horizontal or vertical drag
+                                // Prioritize horizontal or vertical based on drag direction
                                 if (abs(dragAmount.x) > abs(dragAmount.y)) {
-                                    // Horizontal drag - update X offset
                                     offsetX.snapTo(offsetX.value + dragAmount.x)
-                                    // Reset Y offset
                                     if (abs(offsetY.value) > 0) {
                                         offsetY.snapTo(offsetY.value * 0.9f)
                                     }
                                 } else {
-                                    // Vertical drag - update Y offset
                                     offsetY.snapTo(offsetY.value + dragAmount.y)
-                                    // Reset X offset
                                     if (abs(offsetX.value) > 0) {
                                         offsetX.snapTo(offsetX.value * 0.9f)
                                     }
                                 }
 
-                                // Check if we crossed the threshold during drag for horizontal swipes
+                                // Show messages when threshold crossed during drag
                                 if (abs(offsetX.value) > horizontalSwipeThreshold &&
                                     currentSwipeMessage.isEmpty() &&
                                     abs(offsetX.value) > abs(offsetY.value)) {
@@ -375,7 +335,6 @@ fun EnhancedRestaurantCard(
                                     }
                                 }
 
-                                // Check if we crossed the threshold during drag for vertical swipes
                                 if (abs(offsetY.value) > verticalSwipeThreshold &&
                                     currentSwipeMessage.isEmpty() &&
                                     abs(offsetY.value) > abs(offsetX.value)) {
@@ -394,14 +353,13 @@ fun EnhancedRestaurantCard(
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Image gallery with left/right navigation
+                // Image gallery
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
-                    userScrollEnabled = false // Disable pager swiping to prevent conflicts
+                    userScrollEnabled = false // Disable pager swiping to avoid conflicts
                 ) { page ->
                     Box(modifier = Modifier.fillMaxSize()) {
-                        // Image
                         Image(
                             painter = rememberAsyncImagePainter(model = imageUrls[page]),
                             contentDescription = null,
@@ -409,7 +367,7 @@ fun EnhancedRestaurantCard(
                             contentScale = ContentScale.Crop
                         )
 
-                        // Left half click area (Use clickable with indication = null to prevent ripple that interferes with swipe)
+                        // Left image navigation area
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
@@ -419,7 +377,6 @@ fun EnhancedRestaurantCard(
                                     indication = null
                                 ) {
                                     coroutineScope.launch {
-                                        // Go to previous image (with wrap-around)
                                         val targetPage = if (pagerState.currentPage > 0)
                                             pagerState.currentPage - 1
                                         else
@@ -429,7 +386,7 @@ fun EnhancedRestaurantCard(
                                 }
                         )
 
-                        // Right half click area
+                        // Right image navigation area
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
@@ -440,7 +397,6 @@ fun EnhancedRestaurantCard(
                                     indication = null
                                 ) {
                                     coroutineScope.launch {
-                                        // Go to next image (with wrap-around)
                                         pagerState.animateScrollToPage(
                                             (pagerState.currentPage + 1) % pagerState.pageCount
                                         )
@@ -450,7 +406,7 @@ fun EnhancedRestaurantCard(
                     }
                 }
 
-                // Left swipe indicator
+                // Swipe indicators
                 Box(
                     modifier = Modifier
                         .padding(24.dp)
@@ -474,7 +430,6 @@ fun EnhancedRestaurantCard(
                     }
                 }
 
-                // Right swipe indicator
                 Box(
                     modifier = Modifier
                         .padding(24.dp)
@@ -498,7 +453,6 @@ fun EnhancedRestaurantCard(
                     }
                 }
 
-                // Up swipe indicator
                 Box(
                     modifier = Modifier
                         .padding(24.dp)
@@ -522,7 +476,6 @@ fun EnhancedRestaurantCard(
                     }
                 }
 
-                // Down swipe indicator
                 Box(
                     modifier = Modifier
                         .padding(24.dp)
@@ -546,14 +499,13 @@ fun EnhancedRestaurantCard(
                     }
                 }
 
-                // Bottom info panel with details button
+                // Restaurant info panel
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Main info rectangle
                     Card(
                         modifier = Modifier
                             .fillMaxWidth(0.95f)
@@ -565,12 +517,11 @@ fun EnhancedRestaurantCard(
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
                         Box(modifier = Modifier.fillMaxWidth()) {
-                            // Restaurant info (with padding on the right side for details button)
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp)
-                                    .padding(end = 56.dp) // Space for details button only
+                                    .padding(end = 56.dp)
                             ) {
                                 Text(
                                     text = restaurant.name,
@@ -596,7 +547,7 @@ fun EnhancedRestaurantCard(
                                     Spacer(modifier = Modifier.width(4.dp))
 
                                     Text(
-                                        text = String.format("%.1f", restaurant.yelpRating),
+                                        text = String.format(Locale.US, "%.1f", restaurant.yelpRating),
                                         style = MaterialTheme.typography.bodyMedium
                                     )
 
@@ -621,7 +572,7 @@ fun EnhancedRestaurantCard(
                                 )
                             }
 
-                            // Details button on the right side
+                            // Details button
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)
@@ -645,7 +596,7 @@ fun EnhancedRestaurantCard(
                     }
                 }
 
-                // Image pagination indicator
+                // Image pagination dots
                 Box(
                     modifier = Modifier
                         .padding(16.dp)
@@ -683,38 +634,41 @@ fun EnhancedRestaurantCard(
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView(navController: NavController) {
-    // Get context for accessing SharedPreferences
+    // Grab the context for SharedPreferences
     val context = LocalContext.current
 
-    // Create an instance of RestaurantViewModel
+    // Setup our restaurant view model
     val restaurantViewModel = viewModel<RestaurantViewModel>()
 
-    // Observe restaurants from ViewModel
+    // Let's watch for changes in our data
     val restaurants by restaurantViewModel.restaurants.observeAsState(emptyList())
     val isLoading by restaurantViewModel.isLoading.observeAsState(true)
     val error by restaurantViewModel.error.observeAsState(null)
 
-    // State for the list of restaurants (using local copy for swipe functionality)
+    // Need a local copy for our swipe functionality
     val restaurantList = remember { mutableStateListOf<Restaurant>() }
 
-    // Current restaurant index
+    // Keep track of which restaurant we're looking at
     var currentIndex by remember { mutableStateOf(0) }
 
-    // State for detailed view
+    // For showing the detailed view
     var showDetailScreen by remember { mutableStateOf(false) }
 
-    // State to track if card is being swiped
+    // Track if a card is being swiped (for animations)
     var isCardSwiping by remember { mutableStateOf(false) }
 
-    // Coroutine scope for animations
+    // Helps us know when to reload data
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    // Need this for animations
     val coroutineScope = rememberCoroutineScope()
 
-    // Function to navigate to the next restaurant
+    // Go to next restaurant when swiping
     val goToNextRestaurant = {
         coroutineScope.launch {
             if (currentIndex < restaurantList.size - 1) {
                 isCardSwiping = true
-                delay(5) // Allow animation to complete
+                delay(5)
                 currentIndex++
                 delay(5)
                 isCardSwiping = false
@@ -722,12 +676,12 @@ fun HomeView(navController: NavController) {
         }
     }
 
-    // Function to navigate to the previous restaurant
+    // Go back to previous restaurant
     val goToPreviousRestaurant = {
         coroutineScope.launch {
             if (currentIndex > 0) {
                 isCardSwiping = true
-                delay(5) // Allow animation to complete
+                delay(5)
                 currentIndex--
                 delay(5)
                 isCardSwiping = false
@@ -735,41 +689,62 @@ fun HomeView(navController: NavController) {
         }
     }
 
-    // Load restaurants data when the composable is first launched
-    LaunchedEffect(Unit) {
-        // Load restaurants with location-based filtering
+    // Load restaurants when we start or need to refresh
+    LaunchedEffect(refreshTrigger) {
+        Log.d("HomeView", "Loading restaurants, refreshTrigger: $refreshTrigger")
         restaurantViewModel.loadRestaurants(context)
     }
 
-    // Update local restaurant list when ViewModel data changes
+    // Sync our local list with the ViewModel data
     LaunchedEffect(restaurants) {
         restaurantList.clear()
         restaurantList.addAll(restaurants)
     }
 
-    // Refresh restaurants when returning to HomeView from LocationView
-    DisposableEffect(navController) {
-        val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
-            if (destination.route == Screen.Home.route) {
-                // Check if we're returning from the location screen
-                restaurantViewModel.loadRestaurants(context)
-            }
+    // Check for new restaurants every 15 minutes
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay(15*60 * 1000)
+            Log.d("HomeView", "Looking for new restaurants - auto-refresh")
+            restaurantViewModel.loadRestaurants(context)
         }
+    }
+
+    // Refresh when coming back to this screen
+    DisposableEffect(navController) {
+        var previousDestination = ""
+
+        val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
+            val currentRoute = destination.route ?: ""
+
+            if (currentRoute == Screen.Home.route && previousDestination != "" && previousDestination != Screen.Home.route) {
+                Log.d("HomeView", "Back to home from $previousDestination - refreshing")
+                refreshTrigger++
+                coroutineScope.launch {
+                    delay(100)
+                    restaurantViewModel.refreshRestaurants(context)
+                }
+            }
+
+            previousDestination = currentRoute
+        }
+
         navController.addOnDestinationChangedListener(listener)
         onDispose {
             navController.removeOnDestinationChangedListener(listener)
         }
     }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        // Improved top app bar with SwipeByte
+        // Cool gradient app bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFFE53935),  // Darker red
-                            Color(0xFFEF5350)   // Lighter red
+                            Color(0xFFE53935),
+                            Color(0xFFEF5350)
                         )
                     )
                 )
@@ -779,7 +754,6 @@ fun HomeView(navController: NavController) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Logo Image instead of Icon
                 Image(
                     painter = painterResource(id = R.drawable.bird_logo),
                     contentDescription = "App Logo",
@@ -791,7 +765,6 @@ fun HomeView(navController: NavController) {
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // App name with style
                 Text(
                     text = "SwipeByte",
                     style = MaterialTheme.typography.headlineMedium.copy(
@@ -806,7 +779,22 @@ fun HomeView(navController: NavController) {
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
-                // Settings button - Added this part
+
+                IconButton(
+                    onClick = {
+                        refreshTrigger++
+                        restaurantViewModel.refreshRestaurants(context)
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh Restaurants",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 IconButton(
                     onClick = { navController.navigate(Screen.Settings.route) },
                     modifier = Modifier.size(40.dp)
@@ -821,21 +809,66 @@ fun HomeView(navController: NavController) {
             }
         }
 
-        // Main content
+        // Main content area
         Box(modifier = Modifier.weight(1f)) {
-            // Show loading indicator while data is being fetched
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else if (restaurantList.isEmpty()) {
-                // Show empty state when no restaurants are available
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No restaurants found nearby.")
+                // No restaurants? Show a nice empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.RestaurantMenu,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "No new restaurants available",
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Check back later for new restaurants. Restaurants you've swiped on will become available again after 24 hours.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { restaurantViewModel.refreshRestaurants(context) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh"
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Refresh")
+                        }
+                    }
                 }
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // Main content - Current restaurant card
+                    // Show the current restaurant card
                     if (currentIndex < restaurantList.size) {
                         EnhancedRestaurantCard(
                             restaurant = restaurantList[currentIndex],
@@ -843,30 +876,45 @@ fun HomeView(navController: NavController) {
                                 // Mark card as swiping
                                 isCardSwiping = true
 
-                                // Move to next restaurant with a slight delay to allow animation to complete
                                 coroutineScope.launch {
-                                    delay(50) // Short delay for animation
-                                    if (currentIndex < restaurantList.size - 1) {
-                                        currentIndex++
+                                    val isLiked = direction == "Right"
+                                    try {
+                                        Log.d("HomeView", "Recording ${if (isLiked) "LIKE" else "DISLIKE"} for ${restaurantList[currentIndex].name}")
+
+                                        // Save the swipe and wait for it to complete
+                                        SwipeQueryable.recordSwipe(restaurantList[currentIndex].id, restaurantList[currentIndex].name, isLiked)
+
+                                        val currentRestaurant = restaurantList[currentIndex]
+
+                                        // Give Firebase a moment to catch up
+                                        delay(50)
+
+                                        // Update everything
+                                        restaurantViewModel.refreshRestaurants(context)
+
+                                        // Remove from our local list for immediate feedback
+                                        restaurantList.remove(currentRestaurant)
+
+                                        isCardSwiping = false
+                                        refreshTrigger++
+                                    } catch (e: Exception) {
+                                        Log.e("HomeView", "Oops! Swipe recording failed: ${e.message}", e)
+                                        isCardSwiping = false
                                     }
-                                    // Reset swiping state
-                                    isCardSwiping = false
                                 }
                             },
                             onDetailsClick = {
                                 showDetailScreen = true
                             },
                             onSwipeUp = {
-                                // Go to next restaurant on swipe up
                                 goToNextRestaurant()
                             },
                             onSwipeDown = {
-                                // Go to previous restaurant on swipe down
                                 goToPreviousRestaurant()
                             }
                         )
                     } else {
-                        // No more restaurants to show
+                        // All done!
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -880,7 +928,7 @@ fun HomeView(navController: NavController) {
                         }
                     }
 
-                    // Detailed view overlay
+                    // Detailed view that slides up
                     androidx.compose.animation.AnimatedVisibility(
                         visible = showDetailScreen && currentIndex < restaurantList.size && !isCardSwiping,
                         enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
@@ -896,17 +944,17 @@ fun HomeView(navController: NavController) {
                                 onLike = {
                                     coroutineScope.launch {
                                         showDetailScreen = false
-                                        // Mark card as swiping
                                         isCardSwiping = true
 
-                                        delay(10) // Wait for animation to complete
+                                        val curRestaurant = restaurantList[currentIndex]
+                                        SwipeQueryable.recordSwipe(curRestaurant.id, curRestaurant.name, true)
 
-                                        // Move to next restaurant
+                                        delay(10)
+
                                         if (currentIndex < restaurantList.size - 1) {
                                             currentIndex++
                                         }
 
-                                        // Reset swiping state
                                         delay(10)
                                         isCardSwiping = false
                                     }
@@ -914,17 +962,17 @@ fun HomeView(navController: NavController) {
                                 onDislike = {
                                     coroutineScope.launch {
                                         showDetailScreen = false
-                                        // Mark card as swiping
                                         isCardSwiping = true
 
-                                        delay(10) // Wait for animation to complete
+                                        val curRestaurant = restaurantList[currentIndex]
+                                        SwipeQueryable.recordSwipe(curRestaurant.id, curRestaurant.name, false)
 
-                                        // Move to next restaurant
+                                        delay(10)
+
                                         if (currentIndex < restaurantList.size - 1) {
                                             currentIndex++
                                         }
 
-                                        // Reset swiping state
                                         delay(100)
                                         isCardSwiping = false
                                     }
@@ -956,8 +1004,6 @@ fun RestaurantDetailScreen(
             .background(MaterialTheme.colorScheme.background)
             // Add this modifier to consume all pointer input events
             .pointerInput(Unit) {
-                // Detect and consume all touch events to prevent them from propagating
-                // to parent composables that might handle swipes
                 detectDragGestures { _, _ -> }
             }
     ) {
@@ -974,7 +1020,7 @@ fun RestaurantDetailScreen(
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null
-                    ) { /* Do nothing, just consume the click */ }
+                    ) { /* Consume click */ }
             ) {
                 // Use first image from the list or fallback
                 val imageUrl = if (restaurant.imageUrls.isNotEmpty()) {
@@ -1000,7 +1046,7 @@ fun RestaurantDetailScreen(
                         .align(Alignment.TopStart)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = Color.White
                     )
@@ -1056,7 +1102,7 @@ fun RestaurantDetailScreen(
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Text(
-                            text = String.format("%.1f", restaurant.yelpRating) + " ⭐",
+                            text = String.format(Locale.US, "%.1f", restaurant.yelpRating) + " ⭐",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -1073,7 +1119,7 @@ fun RestaurantDetailScreen(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Description
                 Text(
@@ -1083,11 +1129,11 @@ fun RestaurantDetailScreen(
                 )
 
                 Text(
-                    text = "A wonderful restaurant offering delicious food in a welcoming atmosphere. Perfect for enjoying a meal with friends and family.",
+                    text = "A wonderful restaurant.",
                     style = MaterialTheme.typography.bodyMedium
                 )
 
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
                 // Details section
                 Text(
@@ -1099,7 +1145,7 @@ fun RestaurantDetailScreen(
                 DetailRow(
                     icon = Icons.Default.LocationOn,
                     title = "Address",
-                    value = restaurant.address ?: "123 Main Street",
+                    value = restaurant.address ,
                     isClickable = true
                 )
 
@@ -1108,16 +1154,16 @@ fun RestaurantDetailScreen(
                 DetailRow(
                     icon = Icons.Default.Phone,
                     title = "Phone",
-                    value = restaurant.phone ?: "(123) 456-7890"
+                    value = restaurant.phone
                 )
 
                 DetailRow(
                     icon = Icons.Default.DateRange,
                     title = "Website",
-                    value = restaurant.url ?: "www.restaurant.com"
+                    value = restaurant.url
                 )
 
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
                 // Extra space at bottom to ensure content is visible above buttons
                 Spacer(modifier = Modifier.height(80.dp))
@@ -1260,7 +1306,23 @@ fun RestaurantHoursSection(
 
     val daysOfWeek = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
     val regularHours = hours.find { it.hours_type == "REGULAR" }
-    val isOpenNow = regularHours?.is_open_now ?: false
+
+    // Get the current day and time
+    val calendar = Calendar.getInstance()
+    // Convert Java day of week (Sunday=1, Monday=2, ..., Saturday=7) to Yelp format (Monday=0, ..., Sunday=6)
+    val currentDay = (calendar.get(Calendar.DAY_OF_WEEK) + 5) % 7
+
+    // Current time in 24-hour format as a string (e.g., "1430" for 2:30 PM)
+    val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
+    val currentMinute = calendar.get(Calendar.MINUTE)
+    val currentTime = String.format("%02d%02d", currentHour, currentMinute)
+
+    // Calculate if open now
+    val isOpenNow = regularHours?.open?.any { openHours ->
+        openHours.day == currentDay &&
+                currentTime >= (openHours.start ?: "0000") &&
+                currentTime <= (openHours.end ?: "2359")
+    } ?: false
 
     Column(
         modifier = Modifier

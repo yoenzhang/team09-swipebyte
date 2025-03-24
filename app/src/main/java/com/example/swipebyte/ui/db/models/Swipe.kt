@@ -1,8 +1,10 @@
 package com.example.swipebyte.ui.data.models
 
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 
 data class UserSwipe(
     val userId: String = "",
@@ -25,28 +27,63 @@ class SwipeQueryable {
                 .addOnSuccessListener { documents -> callback(documents.documents) }
         }
 
-        suspend fun recordSwipe(restaurantId: String, restaurantName: String, isLiked: Boolean) {
-            val userData = UserQueryable.getUserData()
-            var userId = ""
-            var userInfo : Map<String, Any> = emptyMap()
-            if (userData != null) {
-                userId = userData.first // Firestore document ID
-                userInfo = userData.second // User data as Map<String, Any>
+        // New function: Get swipes from the last 24 hours
+        suspend fun getRecentSwipes(timeframeMillis: Long = 24 * 60 * 60 * 1000): Map<String, Long> {
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return emptyMap()
+            val currentTime = System.currentTimeMillis()
+            val cutoffTime = currentTime - timeframeMillis
+
+            return try {
+                val swipesDocs = userSwipesCollection
+                    .whereEqualTo("userId", currentUserId)
+                    .whereGreaterThan("timestamp", cutoffTime)
+                    .get()
+                    .await()
+
+                val recentSwipes = mutableMapOf<String, Long>()
+                for (doc in swipesDocs.documents) {
+                    val restaurantId = doc.getString("restaurantId") ?: continue
+                    val timestamp = doc.getLong("timestamp") ?: continue
+                    recentSwipes[restaurantId] = timestamp
+                }
+
+                Log.d("SwipeRepo", "Found ${recentSwipes.size} recent swipes within last ${timeframeMillis / (60 * 60 * 1000)} hours")
+                recentSwipes
+            } catch (e: Exception) {
+                Log.e("SwipeRepo", "Error getting recent swipes", e)
+                emptyMap()
             }
-            val swipeData = UserSwipe(
-                userId,
-                userInfo["email"].toString(),
-                restaurantId,
-                restaurantName,
-                if (isLiked) 1 else -1,
-                System.currentTimeMillis()
-            )
+        }
 
-            val documentId = "${userId}_$restaurantId" // Unique key per user-restaurant swipe
+        // Modified to be a suspend function that awaits completion
+        suspend fun recordSwipe(restaurantId: String, restaurantName: String, isLiked: Boolean) {
+            try {
+                val userData = UserQueryable.getUserData()
+                var userId = ""
+                var userInfo : Map<String, Any> = emptyMap()
+                if (userData != null) {
+                    userId = userData.first // Firestore document ID
+                    userInfo = userData.second // User data as Map<String, Any>
+                }
+                val swipeData = UserSwipe(
+                    userId,
+                    userInfo["email"].toString(),
+                    restaurantId,
+                    restaurantName,
+                    if (isLiked) 1 else -1,
+                    System.currentTimeMillis()
+                )
 
-            userSwipesCollection.document(documentId).set(swipeData)
-                .addOnSuccessListener { Log.d("SwipeRepo", "Swipe recorded successfully") }
-                .addOnFailureListener { Log.e("SwipeRepo", "Error recording swipe", it) }
+                val documentId = "${userId}_$restaurantId" // Unique key per user-restaurant swipe
+
+                // Use await() to make this synchronous
+                userSwipesCollection.document(documentId).set(swipeData).await()
+
+                Log.d("SwipeRepo", "Recording ${if (isLiked) "LIKE" else "DISLIKE"} swipe on restaurant $restaurantName ($restaurantId)")
+            } catch (e: Exception) {
+                Log.e("SwipeRepo", "Error recording swipe", e)
+                throw e  // Rethrow to handle in the caller
+            }
         }
     }
 }
