@@ -34,56 +34,6 @@ import kotlinx.coroutines.delay
 import java.util.*
 import androidx.compose.material3.OutlinedTextFieldDefaults
 
-// Function to extract start time from a deal description string
-fun extractStartTime(dealStr: String): String? {
-    val timeRangePattern = "^([\\d:]+[ap]m)\\s*-\\s*[\\d:]+[ap]m:.*$".toRegex(RegexOption.IGNORE_CASE)
-    val match = timeRangePattern.find(dealStr)
-    return match?.groupValues?.get(1)
-}
-
-// Function to see if a deal matches the selected hour
-fun dealMatchesHour(dealStr: String, selectedHour: String): Boolean {
-    if (selectedHour == "All Day") return true
-
-    val extractedStartTime = extractStartTime(dealStr) ?: return false
-
-    // Parse the hour from the extracted start time
-    val hourRegex = "(\\d+):?\\d*([ap]m)".toRegex(RegexOption.IGNORE_CASE)
-    val hourMatch = hourRegex.find(extractedStartTime)
-
-    if (hourMatch != null) {
-        val (hourStr, amPm) = hourMatch.destructured
-        val hour = hourStr.toIntOrNull() ?: return false
-        val extractedAmPm = amPm.lowercase()
-
-        // Parse the selected hour
-        val selectedHourMatch = hourRegex.find(selectedHour)
-
-        if (selectedHourMatch != null) {
-            val (selectedHourStr, selectedAmPm) = selectedHourMatch.destructured
-            val selectedHourInt = selectedHourStr.toIntOrNull() ?: return false
-            val selectedAmPmLower = selectedAmPm.lowercase()
-
-            // Convert to 24-hour for comparison
-            val extractedHour24 = when {
-                extractedAmPm == "pm" && hour != 12 -> hour + 12
-                extractedAmPm == "am" && hour == 12 -> 0
-                else -> hour
-            }
-
-            val selectedHour24 = when {
-                selectedAmPmLower == "pm" && selectedHourInt != 12 -> selectedHourInt + 12
-                selectedAmPmLower == "am" && selectedHourInt == 12 -> 0
-                else -> selectedHourInt
-            }
-
-            // For hourly filtering, check if the deal starts at the selected hour
-            return extractedHour24 == selectedHour24
-        }
-    }
-
-    return false
-}
 
 // Function to extract just the deal description (after the colon in time range)
 fun extractDealDescription(dealStr: String): String {

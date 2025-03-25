@@ -37,8 +37,11 @@ class FriendViewModel : ViewModel() {
                         } else {
                             // Updated to receive a string message instead of boolean
                             friendRepo.sendFriendRequest(senderId, receiverId) { message ->
-                                _operationResult.postValue(Result.success(message))
-                                loadPendingRequests(senderId)
+                                // Only post success if no previous failure occurred
+                                if (_operationResult.value?.isFailure != true) {
+                                    _operationResult.postValue(Result.success(message))
+                                    loadPendingRequests(senderId)
+                                }
                             }
                         }
                     } else {
