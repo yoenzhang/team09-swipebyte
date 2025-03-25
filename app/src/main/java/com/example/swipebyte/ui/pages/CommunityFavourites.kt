@@ -35,6 +35,7 @@ import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.viewmodel.CommunityFavouritesViewModel
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.swipebyte.data.repository.RestaurantRepository
 import com.google.firebase.firestore.GeoPoint
 import java.util.Locale
@@ -59,7 +60,10 @@ fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFa
     var originalSelectedCuisines = selectedCuisines
     var originalSelectedCosts = selectedCosts
 
-    LaunchedEffect(Unit) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+
+
+    LaunchedEffect(navBackStackEntry) {
         try {
             val user = repository.getUserPreferences()
             userLocation = user?.location
@@ -387,7 +391,7 @@ fun CommunityFavouriteCard(
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        text = String.format(Locale.US, "⭐%.1f", restaurant.yelpRating),
+                        text = String.format(Locale.US, "Yelp %.1f", restaurant.yelpRating),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -402,7 +406,7 @@ fun CommunityFavouriteCard(
                         color = Color.Gray
                     )
                     Spacer(modifier = Modifier.weight(1f))
-                    val voteEmoji = if (restaurant.voteCount >= 0) "👍" else "👎"
+                    val voteEmoji = if (restaurant.voteCount >= 0) "SwipeByte 👍" else "SwipeByte 👎"
                     Text(
                         text = "$voteEmoji ${restaurant.voteCount}",
                         style = MaterialTheme.typography.bodyMedium,

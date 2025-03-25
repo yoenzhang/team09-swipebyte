@@ -33,6 +33,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -53,6 +55,8 @@ fun LocationView(navController: NavController) {
 
     // Get context for location services
     val context = LocalContext.current
+    val preferencesViewModel = viewModel<PreferencesViewModel>()
+
 
     // Check if we have location permission
     val hasLocationPermission = ContextCompat.checkSelfPermission(
@@ -422,9 +426,10 @@ fun LocationView(navController: NavController) {
                                 putFloat("location_radius", radius.toFloat())
                                 apply()
                             }
+                            preferencesViewModel.loadLocationRadius(context)
+
                             Log.d("LocationView", "Location saved successfully")
 
-                            // Navigate back to home
                             navController.popBackStack()
                         } catch (e: Exception) {
                             Log.e("LocationView", "Error saving location: ${e.message}")

@@ -71,7 +71,14 @@ class CommunityFavouritesViewModel() : ViewModel() {
 
                 if (cachedRestaurant != null) {
                     // Use cached restaurant, just update the vote count
-                    cachedRestaurant.copy(voteCount = vote.voteCount)
+                    cachedRestaurant.copy(voteCount = vote.voteCount,
+                        distance = calculateDistance(
+                            userLocation?.latitude ?: 0.0,
+                            userLocation?.longitude ?: 0.0,
+                            cachedRestaurant.location.latitude,
+                            cachedRestaurant.location.longitude
+                        )
+                    )
                 } else {
                     // Fetch from Firestore if not in cache
                     fetchUpdatedFavesFromFireStore(vote.restaurantId, vote.voteCount)

@@ -74,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.isActive
 import java.util.Calendar
 import androidx.compose.material.icons.filled.Refresh
+import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -639,6 +640,7 @@ fun HomeView(navController: NavController) {
 
     // Setup our restaurant view model
     val restaurantViewModel = viewModel<RestaurantViewModel>()
+    val preferencesViewModel = viewModel<PreferencesViewModel>()
 
     // Let's watch for changes in our data
     val restaurants by restaurantViewModel.restaurants.observeAsState(emptyList())
@@ -656,9 +658,6 @@ fun HomeView(navController: NavController) {
 
     // Track if a card is being swiped (for animations)
     var isCardSwiping by remember { mutableStateOf(false) }
-
-    // Helps us know when to reload data
-    var refreshTrigger by remember { mutableStateOf(0) }
 
     // Need this for animations
     val coroutineScope = rememberCoroutineScope()
@@ -689,10 +688,21 @@ fun HomeView(navController: NavController) {
         }
     }
 
-    // Load restaurants when we start or need to refresh
+    // Track refresh trigger
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    // Load preferences and restaurants when we start or need to refresh
     LaunchedEffect(refreshTrigger) {
         Log.d("HomeView", "Loading restaurants, refreshTrigger: $refreshTrigger")
-        restaurantViewModel.loadRestaurants(context)
+
+        // Load location radius from SharedPreferences into the PreferencesViewModel
+        preferencesViewModel.loadLocationRadius(context)
+
+        // Load and apply cuisine/price preferences
+        preferencesViewModel.loadPreferences {
+            // After preferences are loaded, load the restaurants
+            restaurantViewModel.loadRestaurants(context)
+        }
     }
 
     // Sync our local list with the ViewModel data
