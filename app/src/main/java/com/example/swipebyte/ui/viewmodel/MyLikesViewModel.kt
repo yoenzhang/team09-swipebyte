@@ -80,7 +80,7 @@ class MyLikesViewModel : ViewModel() {
                 for (doc in swipeQuery.documents) {
                     val restId = doc.getString("restaurantId") ?: continue
                     // Use "username" field instead of "displayName"
-                    val friendDisplayName = doc.getString("username") ?: continue
+                    val friendDisplayName = doc.getString("displayName") ?: continue
                     if (!friendLikesTemp.containsKey(restId)) {
                         friendLikesTemp[restId] = mutableListOf()
                     }

@@ -55,33 +55,40 @@ fun MyLikesView(
     var isLoading by remember { mutableStateOf(true) }
     val likedRestaurants by myLikesViewModel.likedRestaurants.collectAsState(emptyList())
     val timestampsMap by myLikesViewModel.timestampsMap.collectAsState(emptyMap())
+
+    // Existing filters
     var timeFilter by remember { mutableStateOf("Last 24 hours") }
     var selectedCuisines by remember { mutableStateOf(setOf<String>()) }
     var selectedCosts by remember { mutableStateOf(setOf<String>()) }
+
+    // **New**: which friends (by displayName) are selected in the filter
+    var selectedFriends by remember { mutableStateOf(setOf<String>()) }
+
     var showFilterDialog by remember { mutableStateOf(false) }
     var userLocation by remember { mutableStateOf<GeoPoint?>(null) }
     val repository = remember { RestaurantRepository() }
 
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
 
-    // State to track which view to display (e.g., "likes" vs. "friends")
+    // Toggle between "likes" vs. "friends" tab
     var currentView by remember { mutableStateOf("likes") }
 
-    // Friend-related state
+    // Observing friend data
     val pendingRequests by friendViewModel.pendingRequests.observeAsState(emptyList())
     val friendsList by friendViewModel.friendsList.observeAsState(emptyList())
     var emailInput by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Keep original values to restore if dialog is canceled
+    // Save old filter values if user cancels
     var originalTimeFilter by remember { mutableStateOf(timeFilter) }
     var originalSelectedCuisines by remember { mutableStateOf(selectedCuisines) }
     var originalSelectedCosts by remember { mutableStateOf(selectedCosts) }
+    var originalSelectedFriends by remember { mutableStateOf(selectedFriends) }
 
+    // 1) Load location & user swipes
     LaunchedEffect(Unit) {
         isLoading = true
         try {
-            // Fetch user location
             val user = repository.getUserPreferences()
             userLocation = user?.location
             myLikesViewModel.fetchUserSwipedRestaurants(userId)
@@ -91,50 +98,102 @@ fun MyLikesView(
         isLoading = false
     }
 
+    // 2) (Optional) Refresh swipes again
     LaunchedEffect(Unit) {
         isLoading = true
         myLikesViewModel.fetchUserSwipedRestaurants(userId)
         isLoading = false
     }
 
-    // Load friend data when needed
+    // 3) Always load friend list so friend-likes can appear
+    LaunchedEffect(userId) {
+        friendViewModel.loadFriendsList(userId)
+    }
+
+    // 4) Load friend requests if "friends" tab is active
     LaunchedEffect(userId, currentView) {
         if (currentView == "friends") {
             friendViewModel.loadPendingRequests(userId)
-            friendViewModel.loadFriendsList(userId)
         }
     }
 
-    // When friend list changes, fetch friend likes from swipes
+    // 5) Whenever friend list changes, fetch friend-likes
     LaunchedEffect(friendsList) {
         val friendIds = friendsList.map { it.first }
         myLikesViewModel.fetchFriendLikes(friendIds)
     }
 
+    // FILTER + SORT
     val oneDayMillis = 24 * 60 * 60 * 1000L
     val currentTime = System.currentTimeMillis()
-    // Compute filtered list based on time, cuisine and cost filters
-    val filteredRestaurants = remember(likedRestaurants, timestampsMap, timeFilter, selectedCuisines, selectedCosts) {
+
+    // 1) Filter
+    val filteredRestaurants = remember(
+        likedRestaurants,
+        timestampsMap,
+        timeFilter,
+        selectedCuisines,
+        selectedCosts,
+        selectedFriends
+    ) {
         likedRestaurants.filter { restaurant ->
             val restId = restaurant.id ?: return@filter false
             val ts = timestampsMap[restId] ?: 0L
-            // Only include restaurants with a valid (non-zero) timestamp that was set within the last 24 hours.
+
+            // Time filter
             val timeCondition = if (timeFilter == "Last 24 hours") {
                 ts != 0L && (currentTime - ts) < oneDayMillis
             } else true
-            val cuisineCondition = if (selectedCuisines.isEmpty()) true
-            else restaurant.cuisineType.any { it in selectedCuisines }
-            val costCondition = if (selectedCosts.isEmpty()) true
-            else restaurant.priceRange?.trim() in selectedCosts
-            timeCondition && cuisineCondition && costCondition
+
+            // Cuisine filter
+            val cuisineCondition = if (selectedCuisines.isEmpty()) {
+                true
+            } else {
+                restaurant.cuisineType.any { it in selectedCuisines }
+            }
+
+            // Cost filter
+            val costCondition = if (selectedCosts.isEmpty()) {
+                true
+            } else {
+                restaurant.priceRange?.trim() in selectedCosts
+            }
+
+            // Friend-likes filter
+            val friendLikesList = myLikesViewModel.friendLikesMap.value[restId] ?: emptyList()
+            val friendCondition = if (selectedFriends.isEmpty()) {
+                // If no friends are selected, we keep them all
+                true
+            } else {
+                // Keep only if at least one selected friend liked it
+                friendLikesList.any { friendName -> friendName in selectedFriends }
+            }
+
+            timeCondition && cuisineCondition && costCondition && friendCondition
         }
     }
 
-    // Sort the filtered restaurants by most recent like (timestamp descending)
-    val sortedFilteredRestaurants = filteredRestaurants.sortedByDescending { restaurant ->
-        timestampsMap[restaurant.id] ?: 0L
+    // 2) Sort
+    val sortedFilteredRestaurants = remember(filteredRestaurants, selectedFriends) {
+        if (selectedFriends.isNotEmpty()) {
+            // Sort by how many selected friends liked it, then by user’s timestamp
+            filteredRestaurants.sortedWith(
+                compareByDescending<Restaurant> { restaurant ->
+                    val whoLiked = myLikesViewModel.friendLikesMap.value[restaurant.id] ?: emptyList()
+                    whoLiked.count { it in selectedFriends }
+                }.thenByDescending { restaurant ->
+                    timestampsMap[restaurant.id] ?: 0L
+                }
+            )
+        } else {
+            // If no friends selected, sort by user’s like timestamp only
+            filteredRestaurants.sortedByDescending { restaurant ->
+                timestampsMap[restaurant.id] ?: 0L
+            }
+        }
     }
 
+    // UI
     Column(modifier = Modifier.fillMaxSize()) {
         // Top bar
         Box(
@@ -183,7 +242,7 @@ fun MyLikesView(
             }
         }
 
-        // Toggle buttons for switching views
+        // Toggle: My Likes / Friend Requests
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -221,10 +280,9 @@ fun MyLikesView(
             }
         }
 
-        // Content based on selected view
         when (currentView) {
             "likes" -> {
-                // Header row with title and filter button
+                // Header row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -234,10 +292,11 @@ fun MyLikesView(
                 ) {
                     Text(text = "My Likes", style = MaterialTheme.typography.headlineMedium)
                     IconButton(onClick = {
-                        // Save original values when opening the dialog
+                        // Save old filter states in case user cancels
                         originalTimeFilter = timeFilter
                         originalSelectedCuisines = selectedCuisines
                         originalSelectedCosts = selectedCosts
+                        originalSelectedFriends = selectedFriends
                         showFilterDialog = true
                     }) {
                         Icon(
@@ -247,6 +306,7 @@ fun MyLikesView(
                         )
                     }
                 }
+
                 if (showFilterDialog) {
                     MyLikesFilterDialog(
                         timeFilter = timeFilter,
@@ -255,17 +315,23 @@ fun MyLikesView(
                         onCuisinesChange = { selectedCuisines = it },
                         selectedCosts = selectedCosts,
                         onCostsChange = { selectedCosts = it },
+                        // pass friend displayNames from friendsList
+                        allFriendNames = friendsList.map { it.second },
+                        selectedFriends = selectedFriends,
+                        onFriendsChange = { selectedFriends = it },
                         onApply = { showFilterDialog = false },
                         onDismiss = {
-                            // Restore original values when canceling
+                            // restore old values
                             timeFilter = originalTimeFilter
                             selectedCuisines = originalSelectedCuisines
                             selectedCosts = originalSelectedCosts
+                            selectedFriends = originalSelectedFriends
                             showFilterDialog = false
                         }
                     )
                 }
-                // List of liked restaurants using the filtered and sorted list
+
+                // Main content
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -274,12 +340,18 @@ fun MyLikesView(
                 ) {
                     when {
                         isLoading -> {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 CircularProgressIndicator()
                             }
                         }
                         sortedFilteredRestaurants.isEmpty() -> {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text("No liked restaurants found")
                             }
                         }
@@ -290,12 +362,19 @@ fun MyLikesView(
                                 contentPadding = PaddingValues(bottom = 16.dp)
                             ) {
                                 items(sortedFilteredRestaurants) { restaurant ->
-                                    // Retrieve the like timestamp for this restaurant (if available)
                                     val ts = timestampsMap[restaurant.id]
+                                    val friendLikesList =
+                                        myLikesViewModel.friendLikesMap.value[restaurant.id]
+                                            ?: emptyList()
+
                                     LikedRestaurantCard(
                                         restaurant = restaurant,
                                         likedTimestamp = ts,
-                                        friendLikes = myLikesViewModel.friendLikesMap.value[restaurant.id] ?: emptyList(),
+                                        // If user has not selected any friends in filter, pass an empty list
+                                        // so "Liked by: ..." won't appear
+                                        friendLikes = if (selectedFriends.isEmpty()) emptyList()
+                                        else friendLikesList
+                                            .filter { it in selectedFriends },
                                         userLocation = userLocation
                                     ) {
                                         selectedRestaurant = restaurant
@@ -307,7 +386,7 @@ fun MyLikesView(
                 }
             }
             "friends" -> {
-                // Friend Requests View Content
+                // Friend Requests
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -356,8 +435,19 @@ fun MyLikesView(
                                 FriendRequestItem(
                                     request = request,
                                     name = name,
-                                    onAccept = { friendViewModel.acceptFriendRequest(request.requestId, request.senderId, userId) },
-                                    onDecline = { friendViewModel.declineFriendRequest(request.requestId, userId) }
+                                    onAccept = {
+                                        friendViewModel.acceptFriendRequest(
+                                            request.requestId,
+                                            request.senderId,
+                                            userId
+                                        )
+                                    },
+                                    onDecline = {
+                                        friendViewModel.declineFriendRequest(
+                                            request.requestId,
+                                            userId
+                                        )
+                                    }
                                 )
                             }
                         }
@@ -398,7 +488,7 @@ fun MyLikesView(
         }
     }
 
-    // Show restaurant info in a dialog when a restaurant is selected
+    // Show restaurant details in a dialog
     if (selectedRestaurant != null) {
         Dialog(
             onDismissRequest = { selectedRestaurant = null },
@@ -412,6 +502,9 @@ fun MyLikesView(
     }
 }
 
+/**
+ * Extended MyLikesFilterDialog to also let the user pick which friends to filter by.
+ */
 @Composable
 fun MyLikesFilterDialog(
     timeFilter: String,
@@ -420,6 +513,12 @@ fun MyLikesFilterDialog(
     onCuisinesChange: (Set<String>) -> Unit,
     selectedCosts: Set<String>,
     onCostsChange: (Set<String>) -> Unit,
+
+    // NEW: friend filtering
+    allFriendNames: List<String>,
+    selectedFriends: Set<String>,
+    onFriendsChange: (Set<String>) -> Unit,
+
     onApply: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -429,10 +528,11 @@ fun MyLikesFilterDialog(
         text = {
             Box(
                 modifier = Modifier
-                    .heightIn(max = 500.dp)
+                    .heightIn(max = 600.dp)
                     .verticalScroll(rememberScrollState())
             ) {
                 Column {
+                    // Time filter
                     Text("Time Filter", style = MaterialTheme.typography.titleMedium)
                     val timeOptions = listOf("Last 24 hours", "All Time")
                     timeOptions.forEach { option ->
@@ -452,6 +552,8 @@ fun MyLikesFilterDialog(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
+
+                    // Cuisine filter
                     Text("Cuisine Preferences", style = MaterialTheme.typography.titleMedium)
                     val allCuisines = listOf("Italian", "Chinese", "Mexican", "Indian", "American", "Japanese", "Thai")
                     allCuisines.forEach { cuisine ->
@@ -480,6 +582,8 @@ fun MyLikesFilterDialog(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
+
+                    // Cost filter
                     Text("Cost Preferences", style = MaterialTheme.typography.titleMedium)
                     val costOptions = listOf("$", "$$", "$$$", "$$$$")
                     costOptions.forEach { cost ->
@@ -507,6 +611,39 @@ fun MyLikesFilterDialog(
                             Text(cost)
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // NEW: friend filter
+                    Text("Friend Filter", style = MaterialTheme.typography.titleMedium)
+                    if (allFriendNames.isEmpty()) {
+                        Text("No friends found.")
+                    } else {
+                        allFriendNames.forEach { friendName ->
+                            val isSelected = friendName in selectedFriends
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val newSet = selectedFriends.toMutableSet()
+                                        if (isSelected) newSet.remove(friendName) else newSet.add(friendName)
+                                        onFriendsChange(newSet)
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { checked ->
+                                        val newSet = selectedFriends.toMutableSet()
+                                        if (checked) newSet.add(friendName) else newSet.remove(friendName)
+                                        onFriendsChange(newSet)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(friendName)
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -523,11 +660,12 @@ fun MyLikesFilterDialog(
     )
 }
 
+
 @Composable
 fun LikedRestaurantCard(
     restaurant: Restaurant,
-    likedTimestamp: Long?, // like timestamp badge remains
-    friendLikes: List<String>, // new parameter for friend likes
+    likedTimestamp: Long?,
+    friendLikes: List<String>,
     userLocation: GeoPoint?,
     onClick: () -> Unit
 ) {
@@ -539,6 +677,7 @@ fun LikedRestaurantCard(
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
+            // -- Image header --
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -552,19 +691,20 @@ fun LikedRestaurantCard(
                         contentScale = ContentScale.Crop
                     )
                 }
-                // Overlay for darkening the image
+                // Dark overlay
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = 0.3f))
                 )
-                // Badge for like timestamp (top right)
+                // Badge for the like timestamp (top-right)
                 likedTimestamp?.let { ts ->
                     val currentTime = System.currentTimeMillis()
                     val diffMillis = currentTime - ts
                     val diffMinutes = diffMillis / (60 * 1000)
                     val badgeText = when {
-                        diffMinutes < 60 -> "liked ${if (diffMinutes < 1) 1 else diffMinutes} min ago"
+                        diffMinutes < 60 ->
+                            "liked ${if (diffMinutes < 1) 1 else diffMinutes} min ago"
                         diffMinutes < 1440 -> {
                             val diffHours = diffMinutes / 60
                             "liked ${if (diffHours < 1) 1 else diffHours} hour${if (diffHours > 1) "s" else ""} ago"
@@ -588,23 +728,7 @@ fun LikedRestaurantCard(
                         )
                     }
                 }
-                // New badge for friend likes at the bottom right
-                if (friendLikes.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(8.dp)
-                            .background(MaterialTheme.colorScheme.secondary, shape = RoundedCornerShape(8.dp))
-                    ) {
-                        Text(
-                            text = "${friendLikes.size} friend${if (friendLikes.size > 1) "s" else ""}",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-                // Restaurant name at the bottom left
+                // Restaurant name at bottom-left
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -619,12 +743,14 @@ fun LikedRestaurantCard(
                     )
                 }
             }
-            // Additional details below the image
+
+            // -- Content below the image --
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
+                // Row for cuisine & rating
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = restaurant.cuisineType.joinToString(", "),
@@ -638,13 +764,28 @@ fun LikedRestaurantCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+
                 Spacer(modifier = Modifier.height(8.dp))
+
+                // Row for distance (left) and friend-likes (right)
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Distance on the left
                     Text(
                         text = calculateDistance(userLocation, restaurant.location),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Friend-likes on the right (only if not empty)
+                    if (friendLikes.isNotEmpty()) {
+                        val friendNamesString = friendLikes.joinToString(", ")
+                        Text(
+                            text = "Liked by: $friendNamesString",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
                 }
             }
         }
