@@ -12,7 +12,8 @@ data class UserSwipe(
     val restaurantId: String = "",
     val restaurantName: String = "",
     val action: Int = 0, // +1 for like, -1 for dislike
-    val timestamp: Long = System.currentTimeMillis() // query this table for user favourites
+    val timestamp: Long = System.currentTimeMillis(), // query this table for user favourites
+    val displayName: String
 )
 
 class SwipeQueryable {
@@ -55,35 +56,36 @@ class SwipeQueryable {
             }
         }
 
-        // Modified to be a suspend function that awaits completion
         suspend fun recordSwipe(restaurantId: String, restaurantName: String, isLiked: Boolean) {
-            try {
-                val userData = UserQueryable.getUserData()
-                var userId = ""
-                var userInfo : Map<String, Any> = emptyMap()
-                if (userData != null) {
-                    userId = userData.first // Firestore document ID
-                    userInfo = userData.second // User data as Map<String, Any>
-                }
-                val swipeData = UserSwipe(
-                    userId,
-                    userInfo["email"].toString(),
-                    restaurantId,
-                    restaurantName,
-                    if (isLiked) 1 else -1,
-                    System.currentTimeMillis()
-                )
+            val auth = FirebaseAuth.getInstance()
+            val currentUser = auth.currentUser ?: return
 
-                val documentId = "${userId}_$restaurantId" // Unique key per user-restaurant swipe
+            // Retrieve Firestore user data from UserQueryable.getUserData()
+            val userData = UserQueryable.getUserData()
+            val userId = userData?.first ?: currentUser.uid
 
-                // Use await() to make this synchronous
-                userSwipesCollection.document(documentId).set(swipeData).await()
+            // username is set to the user's email
+            val username = currentUser.email ?: (userData?.second?.get("email")?.toString() ?: "")
 
-                Log.d("SwipeRepo", "Recording ${if (isLiked) "LIKE" else "DISLIKE"} swipe on restaurant $restaurantName ($restaurantId)")
-            } catch (e: Exception) {
-                Log.e("SwipeRepo", "Error recording swipe", e)
-                throw e  // Rethrow to handle in the caller
+            // For displayName, prefer FirebaseAuth.currentUser.displayName; if not available, use Firestore data.
+            val displayName = if (!currentUser.displayName.isNullOrEmpty()) {
+                currentUser.displayName!!
+            } else {
+                userData?.second?.get("displayName")?.toString() ?: ""
             }
+
+            val swipeData = UserSwipe(
+                userId = userId,
+                username = username,
+                displayName = displayName,
+                restaurantId = restaurantId,
+                restaurantName = restaurantName,
+                action = if (isLiked) 1 else -1,
+                timestamp = System.currentTimeMillis()
+            )
+
+            val documentId = "${userId}_$restaurantId"
+            userSwipesCollection.document(documentId).set(swipeData).await()
         }
     }
 }
