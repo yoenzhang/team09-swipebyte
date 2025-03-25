@@ -19,6 +19,10 @@ class MyLikesViewModel : ViewModel() {
     private val _timestampsMap = MutableStateFlow<Map<String, Long>>(emptyMap())
     val timestampsMap: StateFlow<Map<String, Long>> = _timestampsMap
 
+    // New state: map of restaurant id to list of friend display names (or usernames) who liked that restaurant
+    private val _friendLikesMap = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+    val friendLikesMap: StateFlow<Map<String, List<String>>> = _friendLikesMap
+
     fun fetchUserSwipedRestaurants(userId: String) {
         viewModelScope.launch {
             try {
@@ -43,8 +47,6 @@ class MyLikesViewModel : ViewModel() {
                     val restDoc = db.collection("restaurants").document(restId).get().await()
                     if (restDoc.exists()) {
                         restDoc.toObject(Restaurant::class.java)?.let { restaurant ->
-                            // If your Restaurant model doesn't have an 'id' field, you may need to add one,
-                            // or store the Firestore doc ID in some property on 'restaurant' for reference.
                             restaurantsList.add(restaurant)
                         }
                     }
@@ -54,6 +56,40 @@ class MyLikesViewModel : ViewModel() {
                 _likedRestaurants.value = restaurantsList
             } catch (e: Exception) {
                 Log.e("MyLikesViewModel", "Error fetching swiped restaurants: ", e)
+            }
+        }
+    }
+
+    // Updated function: fetch friend likes given a list of friend IDs.
+    // Now it queries "userSwipes" for swipes with action 1 from friends and reads the "username" field.
+    fun fetchFriendLikes(friendIds: List<String>) {
+        viewModelScope.launch {
+            try {
+                if (friendIds.isEmpty()) {
+                    _friendLikesMap.value = emptyMap()
+                    return@launch
+                }
+                // For simplicity, we assume friendIds size is small (Firestore's whereIn supports up to 10 items)
+                val swipeQuery = db.collection("userSwipes")
+                    .whereIn("userId", friendIds)
+                    .whereEqualTo("action", 1)
+                    .get()
+                    .await()
+
+                val friendLikesTemp = mutableMapOf<String, MutableList<String>>()
+                for (doc in swipeQuery.documents) {
+                    val restId = doc.getString("restaurantId") ?: continue
+                    // Use "username" field instead of "displayName"
+                    val friendDisplayName = doc.getString("username") ?: continue
+                    if (!friendLikesTemp.containsKey(restId)) {
+                        friendLikesTemp[restId] = mutableListOf()
+                    }
+                    friendLikesTemp[restId]?.add(friendDisplayName)
+                }
+                _friendLikesMap.value = friendLikesTemp
+            } catch (e: Exception) {
+                Log.e("MyLikesViewModel", "Error fetching friend likes: ", e)
+                _friendLikesMap.value = emptyMap()
             }
         }
     }

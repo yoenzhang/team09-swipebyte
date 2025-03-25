@@ -64,7 +64,7 @@ fun MyLikesView(
 
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
 
-    // State to track which view to display
+    // State to track which view to display (e.g., "likes" vs. "friends")
     var currentView by remember { mutableStateOf("likes") }
 
     // Friend-related state
@@ -103,6 +103,12 @@ fun MyLikesView(
             friendViewModel.loadPendingRequests(userId)
             friendViewModel.loadFriendsList(userId)
         }
+    }
+
+    // When friend list changes, fetch friend likes from swipes
+    LaunchedEffect(friendsList) {
+        val friendIds = friendsList.map { it.first }
+        myLikesViewModel.fetchFriendLikes(friendIds)
     }
 
     val oneDayMillis = 24 * 60 * 60 * 1000L
@@ -226,10 +232,7 @@ fun MyLikesView(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "My Likes",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
+                    Text(text = "My Likes", style = MaterialTheme.typography.headlineMedium)
                     IconButton(onClick = {
                         // Save original values when opening the dialog
                         originalTimeFilter = timeFilter
@@ -292,6 +295,7 @@ fun MyLikesView(
                                     LikedRestaurantCard(
                                         restaurant = restaurant,
                                         likedTimestamp = ts,
+                                        friendLikes = myLikesViewModel.friendLikesMap.value[restaurant.id] ?: emptyList(),
                                         userLocation = userLocation
                                     ) {
                                         selectedRestaurant = restaurant
@@ -522,7 +526,8 @@ fun MyLikesFilterDialog(
 @Composable
 fun LikedRestaurantCard(
     restaurant: Restaurant,
-    likedTimestamp: Long?, // New parameter for the like time
+    likedTimestamp: Long?, // like timestamp badge remains
+    friendLikes: List<String>, // new parameter for friend likes
     userLocation: GeoPoint?,
     onClick: () -> Unit
 ) {
@@ -547,12 +552,13 @@ fun LikedRestaurantCard(
                         contentScale = ContentScale.Crop
                     )
                 }
+                // Overlay for darkening the image
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = 0.3f))
                 )
-                // Badge for like timestamp (only display if timestamp is available)
+                // Badge for like timestamp (top right)
                 likedTimestamp?.let { ts ->
                     val currentTime = System.currentTimeMillis()
                     val diffMillis = currentTime - ts
@@ -582,6 +588,23 @@ fun LikedRestaurantCard(
                         )
                     }
                 }
+                // New badge for friend likes at the bottom right
+                if (friendLikes.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .background(MaterialTheme.colorScheme.secondary, shape = RoundedCornerShape(8.dp))
+                    ) {
+                        Text(
+                            text = "${friendLikes.size} friend${if (friendLikes.size > 1) "s" else ""}",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+                // Restaurant name at the bottom left
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -596,6 +619,7 @@ fun LikedRestaurantCard(
                     )
                 }
             }
+            // Additional details below the image
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
