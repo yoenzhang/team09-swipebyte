@@ -30,12 +30,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17 // ✅ Upgraded to Java 17 for performance
+        sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "17" // ✅ Ensures compatibility with latest Kotlin features
+        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -43,23 +43,37 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3" // ✅ Ensure compatibility with Compose 1.5+
+        kotlinCompilerExtensionVersion = "1.5.3"
+    }
+
+    // Add this section to resolve Firebase protobuf conflicts
+    packagingOptions {
+        resources {
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/license.txt"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
+            excludes += "META-INF/notice.txt"
+            excludes += "META-INF/ASL2.0"
+            excludes += "META-INF/*.kotlin_module"
+        }
+    }
+}
+
+// Add this configuration to force a specific version of protobuf
+configurations.all {
+    resolutionStrategy {
+        force("com.google.protobuf:protobuf-javalite:3.21.12")
+        // Force specific Firebase versions to align
+        force("com.google.firebase:firebase-firestore:24.7.1")
+        force("com.google.firebase:firebase-common:20.3.3")
     }
 }
 
 dependencies {
-
-
-
-    // Testing dependencies - corrected format for Kotlin DSL
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation("androidx.test:runner:1.5.2")
-    androidTestImplementation("androidx.test:rules:1.5.0")
-    androidTestImplementation("androidx.test.espresso:espresso-contrib:3.5.1")
-    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.2.0")
-
-
+    // Testing dependencies (removing duplicates)
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation("androidx.test:runner:1.5.2")
@@ -71,26 +85,30 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.5.4")
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.5.4")
 
+    // Add specific firebase test dependencies with fixed versions
+    androidTestImplementation("com.google.firebase:firebase-firestore:24.7.1")
+    androidTestImplementation("com.google.protobuf:protobuf-javalite:3.21.12")
 
+    // The rest of your dependencies stay the same
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
 
-    // Jetpack Compose BOM (Bill of Materials)
+    // Jetpack Compose BOM
     implementation(platform(libs.androidx.compose.bom))
 
     // Core UI Components
     implementation(libs.ui)
     implementation(libs.ui.graphics)
     implementation(libs.ui.tooling.preview)
-    implementation(libs.material3) // ✅ Explicit Material3 dependency
+    implementation(libs.material3)
 
     implementation(libs.androidx.navigation.compose)
 
     // Image Loading
     implementation(libs.coil.compose)
 
-    // Accompanist Pager (For Vertical Swiping)
+    // Accompanist Pager
     implementation(libs.accompanist.pager)
     implementation(libs.accompanist.pager.indicators)
 
@@ -104,11 +122,8 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.runtime.livedata)
     implementation(libs.androidx.room.ktx)
-    implementation(libs.androidx.espresso.contrib)
-    implementation(libs.androidx.uiautomator)
 
-    // **Testing Dependencies (Fixed Duplicates)**
-    testImplementation(libs.junit.jupiter.v592) // ✅ No need for separate api/engine
+    testImplementation(libs.junit.jupiter.v592)
     testImplementation(libs.mockito.core)
     androidTestImplementation(libs.mockito.android)
     testImplementation(libs.mockito.kotlin)
@@ -131,7 +146,6 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.compose.ui:ui:1.4.3")
 
-
     // Google Maps dependencies
     implementation("com.google.maps.android:maps-compose:2.11.4")
     implementation("com.google.android.gms:play-services-maps:18.1.0")
@@ -141,6 +155,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
     implementation("androidx.compose.runtime:runtime-livedata:1.4.3")
 
-
-
+    // Remove this in favor of the fixed version above
+    // implementation("com.google.protobuf:protobuf-javalite:3.25.1")
 }
