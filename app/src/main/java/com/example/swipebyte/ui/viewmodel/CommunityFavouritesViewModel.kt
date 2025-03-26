@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.data.models.RestaurantQueryable.Companion.calculateDistance
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.ListenerRegistration
@@ -13,12 +14,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-data class RestaurantVote(
-    val restaurantId: String,
-    val voteCount: Int
-)
+data class RestaurantVote(val restaurantId: String, val voteCount: Int)
 
-class CommunityFavouritesViewModel() : ViewModel() {
+class CommunityFavouritesViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
 
     private val _favorites = MutableStateFlow<List<Restaurant>>(emptyList())
@@ -27,10 +25,22 @@ class CommunityFavouritesViewModel() : ViewModel() {
     private val _isLoading = MutableStateFlow(true) // Track loading state
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    // New state to hold the current time filter; default "All Time"
+    private val _timeFilter = MutableStateFlow("All Time")
+    val timeFilter: StateFlow<String> = _timeFilter
+
+    fun setTimeFilter(newFilter: String) {
+        _timeFilter.value = newFilter
+        // Recalculate favorites with the new time filter using the latest swipe snapshot
+        recomputeFavorites()
+    }
+
     private var userLocation: GeoPoint? = null
     private var listenerRegistration: ListenerRegistration? = null
 
     private val restaurantCache = mutableMapOf<String, Restaurant>() // Cache to reduce Firestore reads
+
+    private var latestSwipeDocuments: List<DocumentSnapshot> = emptyList()
 
     fun firebaseSwipeListener(userLocation: GeoPoint?) {
         this.userLocation = userLocation
@@ -47,40 +57,54 @@ class CommunityFavouritesViewModel() : ViewModel() {
                 }
 
                 if (snapshots != null) {
-                    val votesMap = mutableMapOf<String, Int>()
-
-                    for (document in snapshots.documents) {
-                        val restaurantId = document.getString("restaurantId") ?: continue
-                        val swipeValue = document.getLong("action")?.toInt() ?: 0
-
-                        votesMap[restaurantId] = votesMap.getOrDefault(restaurantId, 0) + swipeValue
-                    }
-
-                    val sortedVotes = votesMap.map { (id, count) -> RestaurantVote(id, count) }
-                        .sortedByDescending { it.voteCount }
-
-                    updateFavorites(sortedVotes)
+                    latestSwipeDocuments = snapshots.documents
+                    // Recompute favorites using the current time filter
+                    recomputeFavorites()
                 }
             }
+    }
+
+    private fun recomputeFavorites() {
+        val currentTime = System.currentTimeMillis()
+        val cutoff = currentTime - 24 * 60 * 60 * 1000
+
+        val allTimeVotes = mutableMapOf<String, Int>()
+        val last24HourVotes = mutableMapOf<String, Int>()
+
+        for (document in latestSwipeDocuments) {
+            val restaurantId = document.getString("restaurantId") ?: continue
+            val swipeValue = document.getLong("action")?.toInt() ?: 0
+
+            // Aggregate for all time
+            allTimeVotes[restaurantId] = allTimeVotes.getOrDefault(restaurantId, 0) + swipeValue
+
+            // Check timestamp for last 24 hours
+            val timestamp = document.getLong("timestamp") ?: 0L
+            if (timestamp >= cutoff) {
+                last24HourVotes[restaurantId] = last24HourVotes.getOrDefault(restaurantId, 0) + swipeValue
+            }
+        }
+
+        val selectedVotes = if (_timeFilter.value == "Last 24 hours") last24HourVotes else allTimeVotes
+
+        // Create a sorted list of RestaurantVote objects
+        val sortedVotes = selectedVotes.map { (id, count) -> RestaurantVote(id, count) }
+            .sortedByDescending { it.voteCount }
+
+        updateFavorites(sortedVotes)
     }
 
     private fun updateFavorites(voteList: List<RestaurantVote>) {
         viewModelScope.launch {
             val updatedRestaurants = voteList.mapNotNull { vote ->
-
-                val cachedRestaurant = restaurantCache[vote.restaurantId]?.copy(voteCount = vote.voteCount)
-
-                // Use cached restaurant, just update the vote count
-                cachedRestaurant?.copy(
-                    distance = calculateDistance(
-                        userLocation?.latitude ?: 0.0,
-                        userLocation?.longitude ?: 0.0,
-                        cachedRestaurant.location.latitude,
-                        cachedRestaurant.location.longitude
-                    )
-                )
-                ?: // Fetch from Firestore if not in cache
-                fetchUpdatedFavesFromFireStore(vote.restaurantId, vote.voteCount)
+                val cachedRestaurant = restaurantCache[vote.restaurantId]
+                if (cachedRestaurant != null) {
+                    // Use cached restaurant, just update the vote count
+                    cachedRestaurant.copy(voteCount = vote.voteCount)
+                } else {
+                    // Fetch from Firestore if not in cache
+                    fetchUpdatedFavesFromFireStore(vote.restaurantId, vote.voteCount)
+                }
             }
 
             _favorites.value = updatedRestaurants
@@ -91,10 +115,8 @@ class CommunityFavouritesViewModel() : ViewModel() {
     private suspend fun fetchUpdatedFavesFromFireStore(restaurantId: String, voteCount: Int): Restaurant? {
         return try {
             val doc = db.collection("restaurants").document(restaurantId).get().await()
-
             if (doc.exists()) {
                 val restaurant = doc.toObject(Restaurant::class.java)?.copy(voteCount = voteCount)
-
                 restaurant?.let {
                     restaurantCache[restaurantId] = it // Store in cache
                     it.copy(

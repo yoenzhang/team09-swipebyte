@@ -59,8 +59,9 @@ fun MyLikesView(
     myLikesViewModel: MyLikesViewModel = viewModel(),
     friendViewModel: FriendViewModel = viewModel()
 ) {
-    // State declarations
-    var isLoading by remember { mutableStateOf(true) }
+    // Use the view model's loading state (assumes MyLikesViewModel exposes isLoading)
+    val isLoading by myLikesViewModel.isLoading.collectAsState()
+
     val likedRestaurants by myLikesViewModel.likedRestaurants.collectAsState(emptyList())
     val timestampsMap by myLikesViewModel.timestampsMap.collectAsState(emptyMap())
 
@@ -90,7 +91,6 @@ fun MyLikesView(
 
     // Data fetching effects
     LaunchedEffect(Unit) {
-        isLoading = true
         try {
             val user = repository.getUserPreferences()
             userLocation = user?.location
@@ -98,13 +98,6 @@ fun MyLikesView(
         } catch (e: Exception) {
             Log.e("MyLikesView", "Error fetching data: ${e.message}")
         }
-        isLoading = false
-    }
-    // Additional fetch to ensure data consistency
-    LaunchedEffect(Unit) {
-        isLoading = true
-        myLikesViewModel.fetchUserSwipedRestaurants(userId)
-        isLoading = false
     }
     LaunchedEffect(userId) {
         friendViewModel.loadFriendsList(userId)
@@ -312,24 +305,25 @@ fun MyLikesView(
                             .padding(16.dp),
                         horizontalAlignment = Alignment.Start
                     ) {
-                        when {
-                            isLoading -> {
+                        // Use the view model's isLoading state: show the CircularProgressIndicator if loading
+                        if (isLoading) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        } else {
+                            // If not loading, check if there are any liked restaurants at all (raw list)
+                            if (likedRestaurants.isEmpty()) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator()
+                                    Text("You have not liked any restaurants")
                                 }
-                            }
-                            sortedFilteredRestaurants.isEmpty() -> {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("No liked restaurants found")
-                                }
-                            }
-                            else -> {
+                            } else {
+                                // Otherwise, show the filtered (and sorted) list
                                 LazyColumn(
                                     modifier = Modifier.fillMaxSize(),
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -424,9 +418,7 @@ fun MyLikesView(
                         Spacer(modifier = Modifier.height(8.dp))
                         if (friendsList.isEmpty()) {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 32.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(

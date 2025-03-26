@@ -87,5 +87,25 @@ class SwipeQueryable {
             val documentId = "${userId}_$restaurantId"
             userSwipesCollection.document(documentId).set(swipeData).await()
         }
+
+        suspend fun deleteSwipe(restaurantId: String): Boolean {
+            val auth = FirebaseAuth.getInstance()
+            val currentUser = auth.currentUser ?: return false
+
+            try {
+                val userData = UserQueryable.getUserData()
+                val userId = userData?.first ?: currentUser.uid
+
+                val documentId = "${userId}_$restaurantId"
+
+                userSwipesCollection.document(documentId).delete().await()
+
+                Log.d("SwipeRepo", "Successfully deleted swipe for restaurant $restaurantId")
+                return true
+            } catch (e: Exception) {
+                Log.e("SwipeRepo", "Error deleting swipe for restaurant $restaurantId", e)
+                return false
+            }
+        }
     }
 }

@@ -13,18 +13,23 @@ import kotlinx.coroutines.tasks.await
 class MyLikesViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
 
+    // Expose loading state to be collected by the UI
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
     private val _likedRestaurants = MutableStateFlow<List<Restaurant>>(emptyList())
     val likedRestaurants: StateFlow<List<Restaurant>> = _likedRestaurants
 
     private val _timestampsMap = MutableStateFlow<Map<String, Long>>(emptyMap())
     val timestampsMap: StateFlow<Map<String, Long>> = _timestampsMap
 
-    // New state: map of restaurant id to list of friend display names (or usernames) who liked that restaurant
+    // New state: map of restaurant id to list of friend display names who liked that restaurant
     private val _friendLikesMap = MutableStateFlow<Map<String, List<String>>>(emptyMap())
     val friendLikesMap: StateFlow<Map<String, List<String>>> = _friendLikesMap
 
     fun fetchUserSwipedRestaurants(userId: String) {
         viewModelScope.launch {
+            _isLoading.value = true
             try {
                 val swipeDocs = db.collection("userSwipes")
                     .whereEqualTo("userId", userId)
@@ -56,12 +61,14 @@ class MyLikesViewModel : ViewModel() {
                 _likedRestaurants.value = restaurantsList
             } catch (e: Exception) {
                 Log.e("MyLikesViewModel", "Error fetching swiped restaurants: ", e)
+            } finally {
+                _isLoading.value = false
             }
         }
     }
 
-    // Updated function: fetch friend likes given a list of friend IDs.
-    // Now it queries "userSwipes" for swipes with action 1 from friends and reads the "username" field.
+    // New function: fetch friend likes given a list of friend IDs.
+    // It queries "userSwipes" for swipes with action 1 from friends and groups displayNames by restaurantId.
     fun fetchFriendLikes(friendIds: List<String>) {
         viewModelScope.launch {
             try {
@@ -79,7 +86,7 @@ class MyLikesViewModel : ViewModel() {
                 val friendLikesTemp = mutableMapOf<String, MutableList<String>>()
                 for (doc in swipeQuery.documents) {
                     val restId = doc.getString("restaurantId") ?: continue
-                    // Use "username" field instead of "displayName"
+                    // We assume that when a friend swipes, their displayName is stored in the swipe record.
                     val friendDisplayName = doc.getString("displayName") ?: continue
                     if (!friendLikesTemp.containsKey(restId)) {
                         friendLikesTemp[restId] = mutableListOf()

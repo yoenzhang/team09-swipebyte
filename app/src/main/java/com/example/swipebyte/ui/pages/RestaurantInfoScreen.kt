@@ -38,6 +38,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
+import java.util.Calendar
 
 @Composable
 fun RestaurantInfoScreen(
@@ -272,7 +273,22 @@ fun CustomRestaurantHoursSection(
     }
     val daysOfWeek = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
     val regularHours = hours.find { it.hours_type == "REGULAR" }
-    val isOpenNow = regularHours?.is_open_now ?: false
+    // Get the current day and time
+    val calendar = Calendar.getInstance()
+    // Convert Java day of week (Sunday=1, Monday=2, ..., Saturday=7) to Yelp format (Monday=0, ..., Sunday=6)
+    val currentDay = (calendar.get(Calendar.DAY_OF_WEEK) + 5) % 7
+
+    // Current time in 24-hour format as a string (e.g., "1430" for 2:30 PM)
+    val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
+    val currentMinute = calendar.get(Calendar.MINUTE)
+    val currentTime = String.format("%02d%02d", currentHour, currentMinute)
+
+    // Calculate if open now
+    val isOpenNow = regularHours?.open?.any { openHours ->
+        openHours.day == currentDay &&
+                currentTime >= (openHours.start ?: "0000") &&
+                currentTime <= (openHours.end ?: "2359")
+    } ?: false
     Column(
         modifier = Modifier
             .fillMaxWidth()

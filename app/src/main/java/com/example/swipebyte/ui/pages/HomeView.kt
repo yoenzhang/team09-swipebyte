@@ -3,6 +3,7 @@ package com.example.swipebyte.ui.pages
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
@@ -267,25 +268,44 @@ fun EnhancedRestaurantCard(
                                     currentSwipeMessage = if (direction == "Up") {
                                         "Next restaurant!"
                                     } else {
-                                        "Previous restaurant!"
+                                        "Undo action"
                                     }
                                     showMessageOverlay = true
 
-                                    val targetValue = if (offsetY.value < 0) -1500f else 1500f
-                                    offsetY.animateTo(
-                                        targetValue = if (offsetY.value < 0) -500f else 500f,
-                                        animationSpec = tween(durationMillis = 100)
-                                    )
-                                    delay(5)
-                                    offsetY.animateTo(
-                                        targetValue = targetValue,
-                                        animationSpec = tween(durationMillis = 200)
-                                    )
+                                    try {
+                                        val targetValue = if (offsetY.value < 0) -1500f else 1500f
+                                        offsetY.animateTo(
+                                            targetValue = if (offsetY.value < 0) -500f else 500f,
+                                            animationSpec = tween(durationMillis = 100)
+                                        )
+                                        delay(5)
+                                        offsetY.animateTo(
+                                            targetValue = targetValue,
+                                            animationSpec = tween(durationMillis = 200)
+                                        )
 
-                                    if (direction == "Up") {
-                                        onSwipeUp()
-                                    } else {
-                                        onSwipeDown()
+                                        if (direction == "Up") {
+                                            try {
+                                                // Don't reference variables from parent scope
+                                                onSwipeUp()
+                                            } catch (e: Exception) {
+                                                Log.e("HomeView", "Error during swipe up: ${e.message}")
+                                                // Reset card position
+                                                offsetY.animateTo(0f)
+                                                showMessageOverlay = false
+                                                currentSwipeMessage = ""
+                                            }
+                                        } else {
+                                            // Swipe down = undo last action or go to previous restaurant
+                                            onSwipeDown()
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("HomeView", "Error during vertical swipe: ${e.message}")
+                                        // Reset the card position on error
+                                        offsetX.animateTo(0f)
+                                        offsetY.animateTo(0f)
+                                        currentSwipeMessage = ""
+                                        showMessageOverlay = false
                                     }
                                 } else {
                                     // Return to center if no threshold met
@@ -650,6 +670,9 @@ fun HomeView(navController: NavController) {
     // Need a local copy for our swipe functionality
     val restaurantList = remember { mutableStateListOf<Restaurant>() }
 
+    // Track the last swiped restaurant for undo functionality
+    var lastSwipedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
+    var lastSwipeAction by remember { mutableStateOf<Boolean?>(null) }
     // Keep track of which restaurant we're looking at
     var currentIndex by remember { mutableStateOf(0) }
 
@@ -671,19 +694,55 @@ fun HomeView(navController: NavController) {
                 currentIndex++
                 delay(5)
                 isCardSwiping = false
+            } else {
+                Toast.makeText(context, "No more restaurants to show", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // Go back to previous restaurant
+    // Go back to previous restaurant OR undo last swipe
     val goToPreviousRestaurant = {
         coroutineScope.launch {
-            if (currentIndex > 0) {
+            if (lastSwipedRestaurant != null && lastSwipeAction != null) {
+                isCardSwiping = true
+                delay(5)
+
+                try {
+                    Toast.makeText(context, "Undoing ${if (lastSwipeAction == true) "like" else "dislike"}...", Toast.LENGTH_SHORT).show()
+
+                    val success = SwipeQueryable.deleteSwipe(lastSwipedRestaurant!!.id)
+
+                    if (success) {
+                        if (currentIndex >= restaurantList.size) {
+                            restaurantList.add(lastSwipedRestaurant!!)
+                        } else {
+                            restaurantList.add(currentIndex, lastSwipedRestaurant!!)
+                        }
+
+                        lastSwipedRestaurant = null
+                        lastSwipeAction = null
+
+                        restaurantViewModel.refreshRestaurants(context)
+
+                        Toast.makeText(context, "Successfully undid your action!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Failed to undo action. Try again.", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e("HomeView", "Error undoing swipe: ${e.message}", e)
+                    Toast.makeText(context, "Failed to undo action: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+
+                delay(5)
+                isCardSwiping = false
+            } else if (currentIndex > 0) {
                 isCardSwiping = true
                 delay(5)
                 currentIndex--
                 delay(5)
                 isCardSwiping = false
+            } else {
+                Toast.makeText(context, "You're at the first restaurant", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -891,19 +950,26 @@ fun HomeView(navController: NavController) {
                                     try {
                                         Log.d("HomeView", "Recording ${if (isLiked) "LIKE" else "DISLIKE"} for ${restaurantList[currentIndex].name}")
 
-                                        // Save the swipe and wait for it to complete
-                                        SwipeQueryable.recordSwipe(restaurantList[currentIndex].id, restaurantList[currentIndex].name, isLiked)
-
                                         val currentRestaurant = restaurantList[currentIndex]
+                                        lastSwipedRestaurant = currentRestaurant.copy()
+                                        lastSwipeAction = isLiked
 
-                                        // Give Firebase a moment to catch up
-                                        delay(50)
+                                        try {
+                                            SwipeQueryable.recordSwipe(currentRestaurant.id, currentRestaurant.name, isLiked)
+
+                                            // Give Firebase a moment to catch up
+                                            delay(50)
 
                                         // Update everything
                                         restaurantViewModel.refreshRestaurants(context)
 
-                                        // Remove from our local list for immediate feedback
-                                        restaurantList.remove(currentRestaurant)
+                                            restaurantList.remove(currentRestaurant)
+                                        } catch (e: Exception) {
+                                            lastSwipedRestaurant = null
+                                            lastSwipeAction = null
+                                            Toast.makeText(context, "Failed to save your preference", Toast.LENGTH_SHORT).show()
+                                            Log.e("HomeView", "Failed to record swipe: ${e.message}", e)
+                                        }
 
                                         isCardSwiping = false
                                         refreshTrigger++
@@ -917,7 +983,11 @@ fun HomeView(navController: NavController) {
                                 showDetailScreen = true
                             },
                             onSwipeUp = {
-                                goToNextRestaurant()
+                                if (currentIndex >= restaurantList.size - 1) {
+                                    Toast.makeText(context, "No more restaurants to show", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    goToNextRestaurant()
+                                }
                             },
                             onSwipeDown = {
                                 goToPreviousRestaurant()
@@ -961,8 +1031,11 @@ fun HomeView(navController: NavController) {
 
                                         delay(10)
 
+                                        // Keep track of the liked restaurant's index to support going back later
                                         if (currentIndex < restaurantList.size - 1) {
                                             currentIndex++
+                                        } else {
+                                            Toast.makeText(context, "No more restaurants to show", Toast.LENGTH_SHORT).show()
                                         }
 
                                         delay(10)
@@ -981,11 +1054,21 @@ fun HomeView(navController: NavController) {
 
                                         if (currentIndex < restaurantList.size - 1) {
                                             currentIndex++
+                                        } else {
+                                            Toast.makeText(context, "No more restaurants to show", Toast.LENGTH_SHORT).show()
                                         }
 
-                                        delay(100)
+                                        delay(10)
                                         isCardSwiping = false
                                     }
+                                },
+                                onPrevious = {
+                                    goToPreviousRestaurant()
+                                    showDetailScreen = true
+                                },
+                                onNext = {
+                                    goToNextRestaurant()
+                                    showDetailScreen = true
                                 }
                             )
                         }
@@ -1001,7 +1084,9 @@ fun RestaurantDetailScreen(
     restaurant: Restaurant,
     onDismiss: () -> Unit,
     onLike: () -> Unit,
-    onDislike: () -> Unit
+    onDislike: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -1198,7 +1283,6 @@ fun RestaurantDetailScreen(
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            // Dislike button
             FloatingActionButton(
                 onClick = onDislike,
                 shape = CircleShape,
@@ -1225,6 +1309,44 @@ fun RestaurantDetailScreen(
                     imageVector = Icons.Default.Favorite,
                     contentDescription = "Like",
                     modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .align(Alignment.TopEnd),
+            horizontalArrangement = Arrangement.End
+        ) {
+            IconButton(
+                onClick = { onDismiss(); onPrevious() },
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Previous Restaurant",
+                    tint = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            IconButton(
+                onClick = { onDismiss(); onNext() },
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = "Next Restaurant",
+                    tint = Color.White
                 )
             }
         }

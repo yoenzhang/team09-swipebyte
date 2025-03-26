@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.runtime.livedata)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.espresso.core)
 
     // **Testing Dependencies (Fixed Duplicates)**
     testImplementation(libs.junit.jupiter.v592) // ✅ No need for separate api/engine
