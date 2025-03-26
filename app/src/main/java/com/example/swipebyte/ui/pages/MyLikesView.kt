@@ -45,6 +45,13 @@ import com.example.swipebyte.ui.viewmodel.FriendViewModel
 import com.google.firebase.firestore.GeoPoint
 import java.util.Locale
 
+data class FriendFilterMemento(
+    val timeFilter: String,
+    val selectedCuisines: Set<String>,
+    val selectedCosts: Set<String>,
+    val selectedFriends: Set<String>
+)
+
 @Composable
 fun MyLikesView(
     navController: NavController,
@@ -522,6 +529,41 @@ fun MyLikesFilterDialog(
     onApply: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Memento stack
+    var history by remember { mutableStateOf(listOf(FriendFilterMemento(timeFilter, selectedCuisines, selectedCosts, selectedFriends))) }
+    var historyIndex by remember { mutableIntStateOf(0) }
+
+    fun undo() {
+        historyIndex--
+        val previousState = history[historyIndex]
+        onTimeFilterChange(previousState.timeFilter)
+        onCuisinesChange(previousState.selectedCuisines)
+        onCostsChange(previousState.selectedCosts)
+        onFriendsChange(previousState.selectedFriends)
+    }
+
+    fun redo() {
+        historyIndex++
+        val nextState = history[historyIndex]
+        onTimeFilterChange(nextState.timeFilter)
+        onCuisinesChange(nextState.selectedCuisines)
+        onCostsChange(nextState.selectedCosts)
+        onFriendsChange(nextState.selectedFriends)
+    }
+
+    fun saveState(newTimeFilter: String = timeFilter, newSelectedCuisines: Set<String> = selectedCuisines,
+                  newSelectedCosts: Set<String> = selectedCosts, newSelectedFriends: Set<String> = selectedFriends) {
+        val newState = FriendFilterMemento(newTimeFilter, newSelectedCuisines, newSelectedCosts, newSelectedFriends)
+
+        // Trim redo history if new change happens after undo
+        if (historyIndex < history.size - 1) {
+            history = history.subList(0, historyIndex + 1)
+        }
+
+        history = history + newState
+        historyIndex = history.size - 1
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Filter My Likes") },
@@ -539,13 +581,15 @@ fun MyLikesFilterDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onTimeFilterChange(option) }
+                                .clickable { onTimeFilterChange(option)
+                                             saveState(newTimeFilter = option)}
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = (timeFilter == option),
-                                onClick = { onTimeFilterChange(option) }
+                                onClick = { onTimeFilterChange(option)
+                                            saveState(newTimeFilter = option)}
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(option)
@@ -565,6 +609,7 @@ fun MyLikesFilterDialog(
                                     val newSet = selectedCuisines.toMutableSet()
                                     if (isSelected) newSet.remove(cuisine) else newSet.add(cuisine)
                                     onCuisinesChange(newSet)
+                                    saveState(newSelectedCuisines = newSet)
                                 }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -575,6 +620,7 @@ fun MyLikesFilterDialog(
                                     val newSet = selectedCuisines.toMutableSet()
                                     if (checked) newSet.add(cuisine) else newSet.remove(cuisine)
                                     onCuisinesChange(newSet)
+                                    saveState(newSelectedCuisines = newSet)
                                 }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -595,6 +641,7 @@ fun MyLikesFilterDialog(
                                     val newSet = selectedCosts.toMutableSet()
                                     if (isSelected) newSet.remove(cost) else newSet.add(cost)
                                     onCostsChange(newSet)
+                                    saveState(newSelectedCosts = newSet)
                                 }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -605,6 +652,7 @@ fun MyLikesFilterDialog(
                                     val newSet = selectedCosts.toMutableSet()
                                     if (checked) newSet.add(cost) else newSet.remove(cost)
                                     onCostsChange(newSet)
+                                    saveState(newSelectedCosts = newSet)
                                 }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -627,6 +675,7 @@ fun MyLikesFilterDialog(
                                         val newSet = selectedFriends.toMutableSet()
                                         if (isSelected) newSet.remove(friendName) else newSet.add(friendName)
                                         onFriendsChange(newSet)
+                                        saveState(newSelectedFriends = newSet)
                                     }
                                     .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -637,26 +686,60 @@ fun MyLikesFilterDialog(
                                         val newSet = selectedFriends.toMutableSet()
                                         if (checked) newSet.add(friendName) else newSet.remove(friendName)
                                         onFriendsChange(newSet)
+                                        saveState(newSelectedFriends = newSet)
                                     }
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(friendName)
                             }
                         }
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {undo()},
+                                modifier = Modifier.weight(1f),
+                                enabled = historyIndex > 0
+                            ) {
+                                Text("Undo")
+                            }
+                            Button(
+                                onClick = {redo()},
+                                modifier = Modifier.weight(1f),
+                                enabled = historyIndex < history.size - 1
+                            ) {
+                                Text("Redo")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Row for Cancel/Apply, full width buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Cancel")
+                            }
+                            Button(
+                                onClick = onApply,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Apply")
+                            }
+                        }
                     }
                 }
             }
         },
-        confirmButton = {
-            Button(onClick = onApply) {
-                Text("Apply")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        confirmButton = {}
     )
 }
 
