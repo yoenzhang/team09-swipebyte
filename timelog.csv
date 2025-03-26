@@ -13,3 +13,14 @@ Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Ta
 2024-02-28,3,0,0,3,0, set up yelp api key
 2024-03-1,2,3,2,2,2, design talk, api fix
 2024-03-4,3,3,3,3,3, api implement, bug fixes, UI enhanced
+2024-03-07,2,0,0,2,2, add deals of the day
+2024-03-08,2,0,2,0,2, scrape web data for deals of the day
+2024-03-11,0,2,0,2,0, add comm faves functionality
+2024-03-12,0,2,2,0,0, fix comm faves functionality for p5
+2024-03-12,0,0,2,2,0, fix settings page to be robust
+2024-03-17,2,0,0,0,2, add friends list and friends table in firebase
+2024-03-19,1,1,1,1,1, start cleaning code in classes
+2024-03-19,3,0,0,0,0, implement observer in homeview
+2024-03-20,2,0,2,2,2, add friends request ability and friends filtering in my likes
+2024-03-24,0,3,0,0,0, add memento class to filters
+2024-03-19,0,3,0,0,0, add memento class to filters
