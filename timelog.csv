@@ -23,4 +23,4 @@ Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Ta
 2024-03-19,3,0,0,0,0, implement observer in homeview
 2024-03-20,2,0,2,2,2, add friends request ability and friends filtering in my likes
 2024-03-24,0,3,0,0,0, add memento class to filters
-2024-03-19,0,3,0,0,0, add memento class to filters
+2024-03-19,0,1,0,0,0, fix bugs in comm faves view model
