@@ -40,6 +40,12 @@ import com.example.swipebyte.data.repository.RestaurantRepository
 import com.google.firebase.firestore.GeoPoint
 import java.util.Locale
 
+// Class for Memento design pattern
+data class FilterMemento(
+    val timeFilter: String,
+    val selectedCuisines: Set<String>,
+    val selectedCosts: Set<String>
+)
 
 @Composable
 fun CommunityFavouritesView(navController: NavController, viewModel: CommunityFavouritesViewModel = viewModel()) {
@@ -228,6 +234,39 @@ fun CommunityFavouritesFilterDialog(
     onApply: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Memento stack
+    var history by remember { mutableStateOf(listOf(FilterMemento(timeFilter, selectedCuisines, selectedCosts))) }
+    var historyIndex by remember { mutableIntStateOf(0) }
+
+    fun undo() {
+        historyIndex--
+        val previousState = history[historyIndex]
+        onTimeFilterChange(previousState.timeFilter)
+        onCuisinesChange(previousState.selectedCuisines)
+        onCostsChange(previousState.selectedCosts)
+    }
+
+    fun redo() {
+        historyIndex++
+        val nextState = history[historyIndex]
+        onTimeFilterChange(nextState.timeFilter)
+        onCuisinesChange(nextState.selectedCuisines)
+        onCostsChange(nextState.selectedCosts)
+    }
+
+    fun saveState(newTimeFilter: String = timeFilter, newSelectedCuisines: Set<String> = selectedCuisines,
+                  newSelectedCosts: Set<String> = selectedCosts) {
+        val newState = FilterMemento(newTimeFilter, newSelectedCuisines, newSelectedCosts)
+
+        // Trim redo history if new change happens after undo
+        if (historyIndex < history.size - 1) {
+            history = history.subList(0, historyIndex + 1)
+        }
+
+        history = history + newState
+        historyIndex = history.size - 1
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Filter Community Favorites") },
@@ -244,13 +283,15 @@ fun CommunityFavouritesFilterDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onTimeFilterChange(option) }
+                                .clickable { onTimeFilterChange(option)
+                                             saveState(newTimeFilter = option) }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = (timeFilter == option),
-                                onClick = { onTimeFilterChange(option) }
+                                onClick = { onTimeFilterChange(option)
+                                            saveState(newTimeFilter = option) }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(option)
@@ -268,6 +309,7 @@ fun CommunityFavouritesFilterDialog(
                                     val newSet = selectedCuisines.toMutableSet()
                                     if (isSelected) newSet.remove(cuisine) else newSet.add(cuisine)
                                     onCuisinesChange(newSet)
+                                    saveState(newSelectedCuisines = newSet)
                                 }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -278,6 +320,7 @@ fun CommunityFavouritesFilterDialog(
                                     val newSet = selectedCuisines.toMutableSet()
                                     if (checked) newSet.add(cuisine) else newSet.remove(cuisine)
                                     onCuisinesChange(newSet)
+                                    saveState(newSelectedCuisines = newSet)
                                 }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -296,6 +339,7 @@ fun CommunityFavouritesFilterDialog(
                                     val newSet = selectedCosts.toMutableSet()
                                     if (isSelected) newSet.remove(cost) else newSet.add(cost)
                                     onCostsChange(newSet)
+                                    saveState(newSelectedCosts = newSet)
                                 }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -306,25 +350,59 @@ fun CommunityFavouritesFilterDialog(
                                     val newSet = selectedCosts.toMutableSet()
                                     if (checked) newSet.add(cost) else newSet.remove(cost)
                                     onCostsChange(newSet)
+                                    saveState(newSelectedCosts = newSet)
                                 }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(cost)
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {undo()},
+                            modifier = Modifier.weight(1f),
+                            enabled = historyIndex > 0
+                        ) {
+                            Text("Undo")
+                        }
+                        Button(
+                            onClick = {redo()},
+                            modifier = Modifier.weight(1f),
+                            enabled = historyIndex < history.size - 1
+                        ) {
+                            Text("Redo")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Row for Cancel/Apply, full width buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel")
+                        }
+                        Button(
+                            onClick = onApply,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Apply")
+                        }
+                    }
                 }
             }
         },
-        confirmButton = {
-            Button(onClick = onApply) {
-                Text("Apply")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        confirmButton = {}
     )
 }
 

@@ -67,22 +67,20 @@ class CommunityFavouritesViewModel() : ViewModel() {
     private fun updateFavorites(voteList: List<RestaurantVote>) {
         viewModelScope.launch {
             val updatedRestaurants = voteList.mapNotNull { vote ->
-                val cachedRestaurant = restaurantCache[vote.restaurantId]
 
-                if (cachedRestaurant != null) {
-                    // Use cached restaurant, just update the vote count
-                    cachedRestaurant.copy(voteCount = vote.voteCount,
-                        distance = calculateDistance(
-                            userLocation?.latitude ?: 0.0,
-                            userLocation?.longitude ?: 0.0,
-                            cachedRestaurant.location.latitude,
-                            cachedRestaurant.location.longitude
-                        )
+                val cachedRestaurant = restaurantCache[vote.restaurantId]?.copy(voteCount = vote.voteCount)
+
+                // Use cached restaurant, just update the vote count
+                cachedRestaurant?.copy(
+                    distance = calculateDistance(
+                        userLocation?.latitude ?: 0.0,
+                        userLocation?.longitude ?: 0.0,
+                        cachedRestaurant.location.latitude,
+                        cachedRestaurant.location.longitude
                     )
-                } else {
-                    // Fetch from Firestore if not in cache
-                    fetchUpdatedFavesFromFireStore(vote.restaurantId, vote.voteCount)
-                }
+                )
+                ?: // Fetch from Firestore if not in cache
+                fetchUpdatedFavesFromFireStore(vote.restaurantId, vote.voteCount)
             }
 
             _favorites.value = updatedRestaurants
