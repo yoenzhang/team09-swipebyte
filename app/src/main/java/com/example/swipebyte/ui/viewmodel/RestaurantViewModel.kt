@@ -10,11 +10,14 @@ import com.example.swipebyte.data.repository.RestaurantRepository
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.data.models.SwipeQueryable
 import com.example.swipebyte.ui.data.models.UserQueryable
-import com.google.firebase.firestore.GeoPoint
+import com.example.swipebyte.ui.db.observer.*
 import kotlinx.coroutines.launch
+import java.util.Date
 
-class RestaurantViewModel : ViewModel() {
+class RestaurantViewModel : ViewModel(), RestaurantObserver, PreferencesObserver {
     private val repository = RestaurantRepository()
+    private val restaurantObservable = RestaurantDataObserver.getObservable()
+    private val preferencesObservable = PreferencesDataObserver.getObservable()
 
     private val _restaurants = MutableLiveData<List<Restaurant>>(emptyList())
     val restaurants: LiveData<List<Restaurant>> = _restaurants
@@ -25,16 +28,58 @@ class RestaurantViewModel : ViewModel() {
     private val _error = MutableLiveData<String?>(null)
     val error: LiveData<String?> = _error
 
+    // Store last known context for refreshing when preferences change
+    private var lastContext: Context? = null
+    private var currentPreferences = UserPreferences()
+
+    init {
+        // Register as an observer for restaurants and preferences
+        restaurantObservable.registerObserver(this)
+        preferencesObservable.registerObserver(this)
+
+        // Initialize current preferences
+        currentPreferences = preferencesObservable.getPreferences()
+    }
+
+    override fun onCleared() {
+        // Clean up by unregistering when ViewModel is destroyed
+        restaurantObservable.unregisterObserver(this)
+        preferencesObservable.unregisterObserver(this)
+        super.onCleared()
+    }
+
+    // RestaurantObserver implementation
+    override fun onRestaurantUpdate(data: List<Restaurant>) {
+        _restaurants.value = data
+        _isLoading.value = false
+        Log.d("RestaurantViewModel", "Restaurant data updated with ${data.size} restaurants")
+    }
+
+    // PreferencesObserver implementation
+    override fun onPreferencesUpdate(data: UserPreferences) {
+        Log.d("RestaurantViewModel", "Preferences updated: cuisines=${data.cuisinePreferences.size}, " +
+                "price=${data.pricePreferences.size}, radius=${data.locationRadius}")
+
+        // Store the new preferences
+        currentPreferences = data
+
+        // Reload restaurants with new preferences if we have a context
+        lastContext?.let {
+            refreshRestaurants(it)
+        }
+    }
+
     // Load restaurants from repository with preferences and distance filtering
     fun loadRestaurants(context: Context, forceRefresh: Boolean = false) {
         _isLoading.value = true
         _error.value = null
+        lastContext = context // Store for preference updates
 
         viewModelScope.launch {
             try {
-                // Get the user's preferred search radius from SharedPreferences
-                val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
-                val searchRadius = sharedPrefs.getFloat("location_radius", 5.0f).toDouble()
+                // Get the user's preferred search radius from current preferences
+                val searchRadius = currentPreferences.locationRadius.toDouble()
+                Log.d("RestaurantViewModel", "Loading restaurants with radius: $searchRadius km")
 
                 // Get recently swiped restaurants (within the last 24 hours)
                 val recentSwipes = SwipeQueryable.getRecentSwipes()
@@ -42,7 +87,7 @@ class RestaurantViewModel : ViewModel() {
 
                 // Log each swiped restaurant ID for debugging
                 recentSwipes.forEach { (id, timestamp) ->
-                    Log.d("RestaurantViewModel", "Recently swiped: Restaurant ID $id at ${java.util.Date(timestamp)}")
+                    Log.d("RestaurantViewModel", "Recently swiped: Restaurant ID $id at ${Date(timestamp)}")
                 }
 
                 // Get restaurants with distance filtering
@@ -55,12 +100,6 @@ class RestaurantViewModel : ViewModel() {
 
                 Log.d("RestaurantViewModel", "Before filtering: ${result.size} restaurants")
 
-                // Debug log each restaurant to check
-                result.forEach { restaurant ->
-                    val isSwiped = recentSwipes.containsKey(restaurant.id)
-                    Log.d("RestaurantViewModel", "Restaurant ${restaurant.name} (ID: ${restaurant.id}) - Was swiped: $isSwiped")
-                }
-
                 // Filter out recently swiped restaurants
                 val filteredResult = result.filter { restaurant ->
                     val keepRestaurant = !recentSwipes.containsKey(restaurant.id)
@@ -70,13 +109,34 @@ class RestaurantViewModel : ViewModel() {
                     keepRestaurant
                 }
 
+                // Apply cuisine filtering if set in preferences
+                val cuisineFiltered = if (currentPreferences.cuisinePreferences.isNotEmpty()) {
+                    filteredResult.filter { restaurant ->
+                        // Check if any of the restaurant's cuisine types match any of the user's preferences
+                        restaurant.cuisineType.any { cuisine ->
+                            currentPreferences.cuisinePreferences.contains(cuisine)
+                        }
+                    }
+                } else {
+                    filteredResult
+                }
+
+                // Apply price range filtering if set in preferences
+                val priceFiltered = if (currentPreferences.pricePreferences.isNotEmpty()) {
+                    cuisineFiltered.filter { restaurant ->
+                        currentPreferences.pricePreferences.contains(restaurant.priceRange)
+                    }
+                } else {
+                    cuisineFiltered
+                }
+
                 // Sort results by distance (closest first)
-                val sortedResult = filteredResult.sortedBy { it.distance }
+                val sortedResult = priceFiltered.sortedBy { it.distance }
 
-                Log.d("RestaurantViewModel", "After filtering: ${filteredResult.size} restaurants remain")
+                Log.d("RestaurantViewModel", "After filtering: ${sortedResult.size} restaurants remain")
 
-                _restaurants.value = sortedResult
-                _isLoading.value = false
+                // Update the observable (which will notify all observers including this ViewModel)
+                restaurantObservable.updateRestaurants(sortedResult)
 
                 // Log the first few restaurants and their distances for debugging
                 sortedResult.take(5).forEach { restaurant ->
@@ -92,15 +152,16 @@ class RestaurantViewModel : ViewModel() {
     }
 
     // Function to calculate distances for all restaurants based on current user location
-    // This can be called when location changes but we don't want to reload all data
     fun updateDistances(context: Context) {
+        lastContext = context // Store for preference updates
+
         viewModelScope.launch {
             try {
                 // Get current location
                 val location = UserQueryable.getUserLocation()
                 if (location != null) {
-                    // Get current restaurants list
-                    val currentList = _restaurants.value ?: emptyList()
+                    // Get current restaurants list from the observable
+                    val currentList = restaurantObservable.getRestaurants()
 
                     if (currentList.isNotEmpty()) {
                         // Update distances and resort
@@ -116,15 +177,15 @@ class RestaurantViewModel : ViewModel() {
                         }
 
                         // Get the user's preferred search radius
-                        val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
-                        val searchRadius = sharedPrefs.getFloat("location_radius", 5.0f).toDouble()
+                        val searchRadius = currentPreferences.locationRadius.toDouble()
 
                         // Filter by new radius and sort by distance
                         val filteredAndSorted = updatedList
                             .filter { it.distance <= searchRadius }
                             .sortedBy { it.distance }
 
-                        _restaurants.value = filteredAndSorted
+                        // Update the observable with new data
+                        restaurantObservable.updateRestaurants(filteredAndSorted)
 
                         Log.d("RestaurantViewModel", "Updated distances for ${filteredAndSorted.size} restaurants")
                     }

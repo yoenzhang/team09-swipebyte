@@ -67,6 +67,7 @@ class CommunityFavouritesViewModel() : ViewModel() {
     private fun updateFavorites(voteList: List<RestaurantVote>) {
         viewModelScope.launch {
             val updatedRestaurants = voteList.mapNotNull { vote ->
+
                 val cachedRestaurant = restaurantCache[vote.restaurantId]?.copy(voteCount = vote.voteCount)
 
                 // Use cached restaurant, just update the vote count

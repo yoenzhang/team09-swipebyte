@@ -34,66 +34,76 @@ class FriendRepo {
 
     // ✅ Send a friend request
     fun sendFriendRequest(senderId: String, receiverId: String, onResult: (String) -> Unit) {
-        db.collection("friendRequests")
-            .where(
-                Filter.or(
-                    Filter.and(
-                        Filter.equalTo("senderId", senderId),
-                        Filter.equalTo("receiverId", receiverId)
-                    ),
-                    Filter.and(
-                        Filter.equalTo("senderId", receiverId),
-                        Filter.equalTo("receiverId", senderId)
+        // First, check if they're already friends
+        checkIfAlreadyFriends(senderId, receiverId) { alreadyFriends ->
+            if (alreadyFriends) {
+                Log.d("FriendRepo", "Users are already friends.")
+                onResult("You are already friends.")
+                return@checkIfAlreadyFriends
+            }
+
+            // If not friends, proceed with existing friend request logic
+            db.collection("friendRequests")
+                .where(
+                    Filter.or(
+                        Filter.and(
+                            Filter.equalTo("senderId", senderId),
+                            Filter.equalTo("receiverId", receiverId)
+                        ),
+                        Filter.and(
+                            Filter.equalTo("senderId", receiverId),
+                            Filter.equalTo("receiverId", senderId)
+                        )
                     )
                 )
-            )
-            .get()
-            .addOnSuccessListener { documents ->
-                if (documents.isEmpty) {
-                    // No existing request, proceed to send a new request
-                    val request = hashMapOf(
-                        "senderId" to senderId,
-                        "receiverId" to receiverId,
-                        "timestamp" to FieldValue.serverTimestamp()
-                    )
+                .get()
+                .addOnSuccessListener { documents ->
+                    if (documents.isEmpty) {
+                        // No existing request, proceed to send a new request
+                        val request = hashMapOf(
+                            "senderId" to senderId,
+                            "receiverId" to receiverId,
+                            "timestamp" to FieldValue.serverTimestamp()
+                        )
 
-                    db.collection("friendRequests")
-                        .add(request)
-                        .addOnSuccessListener {
-                            Log.d("FriendRepo", "Friend request sent successfully.")
-                            onResult("Friend request sent successfully.")
-                        }
-                        .addOnFailureListener {
-                            Log.e("FriendRepo", "Failed to send friend request.")
-                            onResult("Failed to send friend request. Please try again.")
-                        }
-                } else {
-                    val existingRequest = documents.first()
-                    val existingSender = existingRequest.getString("senderId")
-                    val existingReceiver = existingRequest.getString("receiverId")
-
-                    if (existingSender == receiverId && existingReceiver == senderId) {
-                        // Reverse request exists, accept it instead of sending a new request
-                        acceptFriendRequest(existingRequest.id, receiverId, senderId) { success ->
-                            if (success) {
-                                Log.d("FriendRepo", "Friend request accepted.")
-                                onResult("Friend request accepted. You are now friends!")
-                            } else {
-                                Log.e("FriendRepo", "Failed to accept friend request.")
-                                onResult("Failed to accept friend request. Please try again.")
+                        db.collection("friendRequests")
+                            .add(request)
+                            .addOnSuccessListener {
+                                Log.d("FriendRepo", "Friend request sent successfully.")
+                                onResult("Friend request sent successfully.")
                             }
-                        }
+                            .addOnFailureListener {
+                                Log.e("FriendRepo", "Failed to send friend request.")
+                                onResult("Failed to send friend request. Please try again.")
+                            }
                     } else {
-                        // A request already exists in the same direction
-                        Log.e("FriendRepo", "Friend request already exists between $senderId and $receiverId.")
-                        onResult("Friend request already exists.")
+                        val existingRequest = documents.first()
+                        val existingSender = existingRequest.getString("senderId")
+                        val existingReceiver = existingRequest.getString("receiverId")
+
+                        if (existingSender == receiverId && existingReceiver == senderId) {
+                            // Reverse request exists, accept it instead of sending a new request
+                            acceptFriendRequest(existingRequest.id, receiverId, senderId) { success ->
+                                if (success) {
+                                    Log.d("FriendRepo", "Friend request accepted.")
+                                    onResult("Friend request accepted. You are now friends!")
+                                } else {
+                                    Log.e("FriendRepo", "Failed to accept friend request.")
+                                    onResult("Failed to accept friend request. Please try again.")
+                                }
+                            }
+                        } else {
+                            // A request already exists in the same direction
+                            Log.e("FriendRepo", "Friend request already exists between $senderId and $receiverId.")
+                            onResult("Friend request already exists.")
+                        }
                     }
                 }
-            }
-            .addOnFailureListener { exception ->
-                Log.e("FriendRepo", "Error checking existing requests", exception)
-                onResult("Error checking existing friend requests. Please try again.")
-            }
+                .addOnFailureListener { exception ->
+                    Log.e("FriendRepo", "Error checking existing requests", exception)
+                    onResult("Error checking existing friend requests. Please try again.")
+                }
+        }
     }
 
 
@@ -258,6 +268,28 @@ class FriendRepo {
                     }
                 }
         }
+    }
+    fun checkIfAlreadyFriends(userId: String, potentialFriendId: String, onResult: (Boolean) -> Unit) {
+        db.collection("friends")
+            .where(
+                Filter.or(
+                    Filter.and(
+                        Filter.equalTo("user1", userId),
+                        Filter.equalTo("user2", potentialFriendId)
+                    ),
+                    Filter.and(
+                        Filter.equalTo("user1", potentialFriendId),
+                        Filter.equalTo("user2", userId)
+                    )
+                )
+            )
+            .get()
+            .addOnSuccessListener { documents ->
+                onResult(!documents.isEmpty)
+            }
+            .addOnFailureListener {
+                onResult(false)
+            }
     }
 
 

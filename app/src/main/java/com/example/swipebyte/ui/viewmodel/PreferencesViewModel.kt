@@ -1,6 +1,10 @@
 package com.example.swipebyte.ui.viewmodel
 
+import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
+import com.example.swipebyte.ui.db.observer.PreferencesDataObserver
+import com.example.swipebyte.ui.db.observer.UserPreferences
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -8,10 +12,12 @@ import com.google.firebase.firestore.SetOptions
 class PreferencesViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
+    private val preferencesObservable = PreferencesDataObserver.getObservable()
 
     // Cache for preferences
     private var cachedCuisines: List<String> = emptyList()
     private var cachedPriceRange: List<String> = emptyList()
+    private var cachedLocationRadius: Float = 5.0f
 
     // Get selected cuisines from cache
     fun getSelectedCuisines(): List<String> {
@@ -22,13 +28,15 @@ class PreferencesViewModel : ViewModel() {
     fun getSelectedPriceRange(): List<String> {
         return cachedPriceRange
     }
-
     // Initialize by loading preferences from Firestore
     fun loadPreferences(callback: () -> Unit) {
         val userId = auth.currentUser?.uid ?: run {
             callback()
             return
         }
+
+        // Get location radius from shared preferences
+        Log.d("PreferencesViewModel", "Loading user preferences from Firestore")
 
         firestore.collection("users")
             .document(userId)
@@ -44,14 +52,28 @@ class PreferencesViewModel : ViewModel() {
                     cachedCuisines = emptyList()
                     cachedPriceRange = emptyList()
                 }
+
+                // Update the observable with the new preferences
+                updateObservable()
+
                 callback()
             }
             .addOnFailureListener {
                 // Handle failures - clear cache on failure
+                Log.e("PreferencesViewModel", "Error loading preferences: ${it.message}")
                 cachedCuisines = emptyList()
                 cachedPriceRange = emptyList()
                 callback()
             }
+    }
+
+    // Load location radius from SharedPreferences
+    fun loadLocationRadius(context: Context) {
+        val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
+        cachedLocationRadius = sharedPrefs.getFloat("location_radius", 5.0f)
+
+        // Update observable with new radius
+        updateObservable()
     }
 
     fun savePreferences(
@@ -76,10 +98,27 @@ class PreferencesViewModel : ViewModel() {
                 // Update cache
                 cachedCuisines = selectedCuisines
                 cachedPriceRange = priceRange
+
+                // Update the observable with the new preferences.
+                updateObservable()
+
                 callback(true)
             }
             .addOnFailureListener {
+                Log.e("PreferencesViewModel", "Error saving preferences: ${it.message}")
                 callback(false)
             }
+    }
+
+    // Update the observable with current preference values.
+    private fun updateObservable() {
+        val currentPreferences = UserPreferences(
+            cuisinePreferences = cachedCuisines,
+            pricePreferences = cachedPriceRange,
+            locationRadius = cachedLocationRadius
+        )
+        preferencesObservable.updatePreferences(currentPreferences)
+        Log.d("PreferencesViewModel", "Updated observable: cuisines=${cachedCuisines.size}, " +
+                "price ranges=${cachedPriceRange.size}, radius=$cachedLocationRadius")
     }
 }
