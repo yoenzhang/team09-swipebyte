@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -612,7 +613,8 @@ fun LikedRestaurantCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clickable { onClick() }
+            .testTag("likedRestaurantCard"), // Add test tag for restaurant card
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -622,6 +624,7 @@ fun LikedRestaurantCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)
+                    .testTag("likedRestaurantImage") // Add test tag for image
             ) {
                 if (restaurant.imageUrls.isNotEmpty()) {
                     Image(
@@ -659,6 +662,7 @@ fun LikedRestaurantCard(
                             .align(Alignment.TopEnd)
                             .padding(8.dp)
                             .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(8.dp))
+                            .testTag("likeTimestampBadge") // Add test tag for timestamp badge
                     ) {
                         Text(
                             text = badgeText,
@@ -678,7 +682,8 @@ fun LikedRestaurantCard(
                         style = MaterialTheme.typography.titleLarge,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        maxLines = 1,
+                        modifier = Modifier.testTag("likedRestaurantName") // Add test tag for restaurant name
                     )
                 }
             }
@@ -692,13 +697,15 @@ fun LikedRestaurantCard(
                     Text(
                         text = restaurant.cuisineType.joinToString(", "),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
+                        color = Color.Gray,
+                        modifier = Modifier.testTag("likedRestaurantCuisine") // Add test tag for cuisine
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
                         text = String.format(Locale.US, "⭐%.1f", restaurant.yelpRating),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("likedRestaurantRating") // Add test tag for rating
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -706,7 +713,8 @@ fun LikedRestaurantCard(
                     Text(
                         text = calculateDistance(userLocation, restaurant.location),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = Color.Gray,
+                        modifier = Modifier.testTag("likedRestaurantDistance") // Add test tag for distance
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     if (friendLikes.isNotEmpty()) {
@@ -714,7 +722,8 @@ fun LikedRestaurantCard(
                         Text(
                             text = "Liked by: $friendNamesString",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.testTag("likedByFriends") // Add test tag for friend likes
                         )
                     }
                 }

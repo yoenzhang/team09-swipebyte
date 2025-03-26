@@ -1,6 +1,5 @@
 package com.example.swipebyte.ui.pages
 
-import android.media.Image
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.ButtonDefaults
@@ -41,8 +39,8 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavController
-import coil.compose.AsyncImagePainter.State.Empty.painter
 import com.example.swipebyte.R
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
@@ -62,7 +60,8 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
-                .padding(paddingValues), // Prevent overlap with Snackbar
+                .padding(paddingValues)
+                .testTag("loginScreen"), // Add test tag for the screen
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -70,14 +69,13 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
                 painter = painterResource(id = R.drawable.swipebyte),
                 contentDescription = "SWIPE Image",
                 modifier = Modifier
-                    .size(175.dp) // Adjust image width
-                    .padding(bottom = 8.dp), // Add space between images
+                    .size(175.dp)
+                    .padding(bottom = 8.dp)
+                    .testTag("logoImage"), // Add test tag for the logo
                 contentScale = ContentScale.Fit
             )
 
-
             Spacer(modifier = Modifier.height(16.dp))
-
 
             Text(
                 text = buildAnnotatedString {
@@ -87,7 +85,8 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
                     append("Swipe Now")
                 },
                 fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("appTitle") // Add test tag for the title
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -97,7 +96,9 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
                 onValueChange = { email = it },
                 label = { Text("Email") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("emailInput"), // Add specific test tag for email field
                 shape = RoundedCornerShape(15.dp)
             )
 
@@ -109,7 +110,9 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
                 label = { Text("Password") },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("passwordInput"), // Add specific test tag for password field
                 shape = RoundedCornerShape(15.dp)
             )
 
@@ -134,7 +137,9 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("loginButton"), // Add test tag for login button
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -146,8 +151,6 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
             Spacer(modifier = Modifier.height(16.dp))
 
             // "Don't have an account? Sign up" with "Sign up" as clickable and underlined
-
-
             ClickableText(
                 text = buildAnnotatedString {
                     append("Don't have an account? ")
@@ -163,10 +166,9 @@ fun LoginScreen(authViewModel: AuthViewModel, navController: NavController) {
                 onClick = { offset ->
                     // Navigate to Sign-Up screen when "Sign up" is clicked
                     navController.navigate(Screen.SignUp.route)
-                }
+                },
+                modifier = Modifier.testTag("signupLink") // Add test tag for signup link
             )
-
-
         }
     }
 }
