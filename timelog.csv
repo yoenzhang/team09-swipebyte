@@ -13,16 +13,16 @@ Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Ta
 2024-02-20,2,2,2,2,2, go over p4 requirements
 2024-02-24,3,0,3,0,3, clean up ui and motion controls
 2024-02-27,0,4,0,1,0, finish db schema for p4
-2024-02-28,3,0,0,5,0, set up yelp api key
+2024-02-28,2,0,0,5,0, set up yelp api key + models
 2024-03-1,2,3,2,3,2, design talk + api fix
 2024-03-4,3,3,3,3,3, api implement + bug fixes + UI enhanced
 2024-03-07,2,0,0,2,2, add deals of the day
-2024-03-08,8,0,6,0,5, scrape web data for deals of the day
-2024-03-09,6,1,5,2,8, scrape web data for deals of the day
+2024-03-08,6,0,6,0,5, scrape web data for deals of the day optimize + UI
+2024-03-09,4,1,2,2,3, scrape web data for deals of the day + UI + backend
 2024-03-11,0,4,0,4,0, add comm faves functionality
-2024-03-12,0,0,0,3,0, Settings + sign in (passward, names)
-2024-03-12,0,4,6,0,0, fix comm faves functionality for p5
-2024-03-12,0,0,3,2,0, fix settings page to be robust
+2024-03-12,0,0,0,3,3, Settings + sign in (passward, names) + maps
+2024-03-12,0,4,3,0,0, fix comm faves functionality for p5
+2024-03-12,2,0,3,2,1, fix settings page to be robust
 2024-03-17,0,0,0,2,2, ilters fixed + map
 2024-03-17,4,0,0,5,4, add friends list and friends table in firebase + filters fixed + map
 2024-03-19,1,1,1,1,1, start cleaning code in classes
