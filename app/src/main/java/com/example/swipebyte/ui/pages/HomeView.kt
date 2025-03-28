@@ -723,8 +723,6 @@ fun HomeView(navController: NavController) {
                         lastSwipeAction = null
 
                         restaurantViewModel.refreshRestaurants(context)
-
-                        Toast.makeText(context, "Successfully undid your action!", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(context, "Failed to undo action. Try again.", Toast.LENGTH_SHORT).show()
                     }
