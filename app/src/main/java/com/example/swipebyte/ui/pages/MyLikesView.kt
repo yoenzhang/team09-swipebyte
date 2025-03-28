@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,7 +50,8 @@ data class FriendFilterMemento(
     val timeFilter: String,
     val selectedCuisines: Set<String>,
     val selectedCosts: Set<String>,
-    val selectedFriends: Set<String>
+    val selectedFriends: Set<String>,
+    val showOnlyFavourites: Boolean
 )
 
 @Composable
@@ -59,22 +61,23 @@ fun MyLikesView(
     myLikesViewModel: MyLikesViewModel = viewModel(),
     friendViewModel: FriendViewModel = viewModel()
 ) {
-    // Use the view model's loading state (assumes MyLikesViewModel exposes isLoading)
     val isLoading by myLikesViewModel.isLoading.collectAsState()
 
     val likedRestaurants by myLikesViewModel.likedRestaurants.collectAsState(emptyList())
     val timestampsMap by myLikesViewModel.timestampsMap.collectAsState(emptyMap())
+    val favouritesMap by myLikesViewModel.favouritesMap.collectAsState(emptySet())
 
     var timeFilter by remember { mutableStateOf("Last 24 hours") }
     var selectedCuisines by remember { mutableStateOf(setOf<String>()) }
     var selectedCosts by remember { mutableStateOf(setOf<String>()) }
     var selectedFriends by remember { mutableStateOf(setOf<String>()) }
+    var showOnlyFavourites by remember { mutableStateOf(false) }
 
-    // Save original filter values for cancellation
-    var originalTimeFilter by remember { mutableStateOf(timeFilter) }
-    var originalSelectedCuisines by remember { mutableStateOf(selectedCuisines) }
-    var originalSelectedCosts by remember { mutableStateOf(selectedCosts) }
-    var originalSelectedFriends by remember { mutableStateOf(selectedFriends) }
+    var originalTimeFilter = timeFilter
+    var originalSelectedCuisines = selectedCuisines
+    var originalSelectedCosts = selectedCosts
+    var originalSelectedFriends = selectedFriends
+    var originalShowOnlyFavourites = showOnlyFavourites
 
     var showFilterDialog by remember { mutableStateOf(false) }
     var userLocation by remember { mutableStateOf<GeoPoint?>(null) }
@@ -131,7 +134,9 @@ fun MyLikesView(
         timeFilter,
         selectedCuisines,
         selectedCosts,
-        selectedFriends
+        selectedFriends,
+        showOnlyFavourites,
+        favouritesMap
     ) {
         likedRestaurants.filter { restaurant ->
             val restId = restaurant.id ?: return@filter false
@@ -143,9 +148,22 @@ fun MyLikesView(
             val costCondition = if (selectedCosts.isEmpty()) true else restaurant.priceRange?.trim() in selectedCosts
             val friendLikesList = myLikesViewModel.friendLikesMap.value[restId] ?: emptyList()
             val friendCondition = if (selectedFriends.isEmpty()) true else friendLikesList.any { it in selectedFriends }
-            timeCondition && cuisineCondition && costCondition && friendCondition
+            val favouritesCondition = if (showOnlyFavourites) {
+                val favourites = myLikesViewModel.favouritesMap.value
+                restId in favourites
+            } else true
+            
+            timeCondition && cuisineCondition && costCondition && friendCondition && favouritesCondition
         }
     }
+    
+    // Effect to refresh favorites when user adds new favorites in the current view
+    LaunchedEffect(showOnlyFavourites) {
+        if (showOnlyFavourites) {
+            myLikesViewModel.refreshFavouritesStatus()
+        }
+    }
+
     val sortedFilteredRestaurants = remember(filteredRestaurants, selectedFriends) {
         if (selectedFriends.isNotEmpty()) {
             filteredRestaurants.sortedWith(
@@ -160,6 +178,13 @@ fun MyLikesView(
             filteredRestaurants.sortedByDescending { restaurant ->
                 timestampsMap[restaurant.id] ?: 0L
             }
+        }
+    }
+
+    // Effect to refresh favorites when showing filter dialog
+    LaunchedEffect(showFilterDialog) {
+        if (showFilterDialog) {
+            myLikesViewModel.refreshFavouritesStatus()
         }
     }
 
@@ -264,18 +289,36 @@ fun MyLikesView(
                             text = "My Likes",
                             style = MaterialTheme.typography.headlineMedium
                         )
-                        IconButton(onClick = {
-                            originalTimeFilter = timeFilter
-                            originalSelectedCuisines = selectedCuisines
-                            originalSelectedCosts = selectedCosts
-                            originalSelectedFriends = selectedFriends
-                            showFilterDialog = true
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.FilterList,
-                                contentDescription = "Filter",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                        Row {
+                            IconButton(onClick = {
+                                // Refresh/reload logic
+                                myLikesViewModel.fetchUserSwipedRestaurants(userId)
+                                val friendIds = friendsList.map { it.first }
+                                myLikesViewModel.fetchFriendLikes(friendIds)
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = {
+                                // Save original state before opening dialog
+                                originalTimeFilter = timeFilter
+                                originalSelectedCuisines = selectedCuisines
+                                originalSelectedCosts = selectedCosts
+                                originalSelectedFriends = selectedFriends
+                                originalShowOnlyFavourites = showOnlyFavourites
+                                
+                                myLikesViewModel.refreshFavouritesStatus()
+                                showFilterDialog = true
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.FilterList,
+                                    contentDescription = "Filter",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                     if (showFilterDialog) {
@@ -289,14 +332,18 @@ fun MyLikesView(
                             allFriendNames = friendsList.map { it.second },
                             selectedFriends = selectedFriends,
                             onFriendsChange = { selectedFriends = it },
+                            showOnlyFavourites = showOnlyFavourites,
+                            onShowOnlyFavouritesChange = { showOnlyFavourites = it },
                             onApply = { showFilterDialog = false },
                             onDismiss = {
                                 timeFilter = originalTimeFilter
                                 selectedCuisines = originalSelectedCuisines
                                 selectedCosts = originalSelectedCosts
                                 selectedFriends = originalSelectedFriends
+                                showOnlyFavourites = originalShowOnlyFavourites
                                 showFilterDialog = false
-                            }
+                            },
+                            
                         )
                     }
                     Column(
@@ -466,34 +513,52 @@ fun MyLikesFilterDialog(
     allFriendNames: List<String>,
     selectedFriends: Set<String>,
     onFriendsChange: (Set<String>) -> Unit,
+    showOnlyFavourites: Boolean,
+    onShowOnlyFavouritesChange: (Boolean) -> Unit,
     onApply: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
-    // Memento stack
-    var history by remember { mutableStateOf(listOf(FriendFilterMemento(timeFilter, selectedCuisines, selectedCosts, selectedFriends))) }
+    // Local state for dialog - changes here don't affect the parent until Apply is clicked
+    var localTimeFilter by remember(timeFilter) { mutableStateOf(timeFilter) }
+    var localSelectedCuisines by remember(selectedCuisines) { mutableStateOf(selectedCuisines) }
+    var localSelectedCosts by remember(selectedCosts) { mutableStateOf(selectedCosts) }
+    var localSelectedFriends by remember(selectedFriends) { mutableStateOf(selectedFriends) }
+    var localShowOnlyFavourites by remember(showOnlyFavourites) { mutableStateOf(showOnlyFavourites) }
+
+    // Memento stack for undo/redo
+    var history by remember { mutableStateOf(listOf(FriendFilterMemento(localTimeFilter, localSelectedCuisines, localSelectedCosts, localSelectedFriends, localShowOnlyFavourites))) }
     var historyIndex by remember { mutableIntStateOf(0) }
 
     fun undo() {
-        historyIndex--
-        val previousState = history[historyIndex]
-        onTimeFilterChange(previousState.timeFilter)
-        onCuisinesChange(previousState.selectedCuisines)
-        onCostsChange(previousState.selectedCosts)
-        onFriendsChange(previousState.selectedFriends)
+        if (historyIndex > 0) {
+            historyIndex--
+            val previousState = history[historyIndex]
+            localTimeFilter = previousState.timeFilter
+            localSelectedCuisines = previousState.selectedCuisines
+            localSelectedCosts = previousState.selectedCosts
+            localSelectedFriends = previousState.selectedFriends
+            localShowOnlyFavourites = previousState.showOnlyFavourites
+        }
     }
 
     fun redo() {
-        historyIndex++
-        val nextState = history[historyIndex]
-        onTimeFilterChange(nextState.timeFilter)
-        onCuisinesChange(nextState.selectedCuisines)
-        onCostsChange(nextState.selectedCosts)
-        onFriendsChange(nextState.selectedFriends)
+        if (historyIndex < history.size - 1) {
+            historyIndex++
+            val nextState = history[historyIndex]
+            localTimeFilter = nextState.timeFilter
+            localSelectedCuisines = nextState.selectedCuisines
+            localSelectedCosts = nextState.selectedCosts
+            localSelectedFriends = nextState.selectedFriends
+            localShowOnlyFavourites = nextState.showOnlyFavourites
+        }
     }
 
-    fun saveState(newTimeFilter: String = timeFilter, newSelectedCuisines: Set<String> = selectedCuisines,
-                  newSelectedCosts: Set<String> = selectedCosts, newSelectedFriends: Set<String> = selectedFriends) {
-        val newState = FriendFilterMemento(newTimeFilter, newSelectedCuisines, newSelectedCosts, newSelectedFriends)
+    fun saveState(newTimeFilter: String = localTimeFilter, 
+                  newSelectedCuisines: Set<String> = localSelectedCuisines,
+                  newSelectedCosts: Set<String> = localSelectedCosts, 
+                  newSelectedFriends: Set<String> = localSelectedFriends,
+                  newShowOnlyFavourites: Boolean = localShowOnlyFavourites) {
+        val newState = FriendFilterMemento(newTimeFilter, newSelectedCuisines, newSelectedCosts, newSelectedFriends, newShowOnlyFavourites)
 
         // Trim redo history if new change happens after undo
         if (historyIndex < history.size - 1) {
@@ -514,21 +579,51 @@ fun MyLikesFilterDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Column {
+                    // Favourite filter
+                    Text("Favourites Filter", style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                localShowOnlyFavourites = !localShowOnlyFavourites
+                                saveState(newShowOnlyFavourites = localShowOnlyFavourites)
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = localShowOnlyFavourites,
+                            onCheckedChange = { checked ->
+                                localShowOnlyFavourites = checked
+                                saveState(newShowOnlyFavourites = checked)
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Show only favourited restaurants")
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Existing time filter
                     Text("Time Filter", style = MaterialTheme.typography.titleMedium)
                     val timeOptions = listOf("Last 24 hours", "All Time")
                     timeOptions.forEach { option ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onTimeFilterChange(option)
-                                             saveState(newTimeFilter = option)}
+                                .clickable { 
+                                    localTimeFilter = option
+                                    saveState(newTimeFilter = option)
+                                }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = (timeFilter == option),
-                                onClick = { onTimeFilterChange(option)
-                                            saveState(newTimeFilter = option)}
+                                selected = (localTimeFilter == option),
+                                onClick = { 
+                                    localTimeFilter = option
+                                    saveState(newTimeFilter = option)
+                                }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(option)
@@ -538,14 +633,14 @@ fun MyLikesFilterDialog(
                     Text("Cuisine Preferences", style = MaterialTheme.typography.titleMedium)
                     val allCuisines = listOf("Italian", "Chinese", "Mexican", "Indian", "American", "Japanese", "Thai")
                     allCuisines.forEach { cuisine ->
-                        val isSelected = cuisine in selectedCuisines
+                        val isSelected = cuisine in localSelectedCuisines
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val newSet = selectedCuisines.toMutableSet()
+                                    val newSet = localSelectedCuisines.toMutableSet()
                                     if (isSelected) newSet.remove(cuisine) else newSet.add(cuisine)
-                                    onCuisinesChange(newSet)
+                                    localSelectedCuisines = newSet
                                     saveState(newSelectedCuisines = newSet)
                                 }
                                 .padding(vertical = 4.dp),
@@ -554,9 +649,9 @@ fun MyLikesFilterDialog(
                             Checkbox(
                                 checked = isSelected,
                                 onCheckedChange = { checked ->
-                                    val newSet = selectedCuisines.toMutableSet()
+                                    val newSet = localSelectedCuisines.toMutableSet()
                                     if (checked) newSet.add(cuisine) else newSet.remove(cuisine)
-                                    onCuisinesChange(newSet)
+                                    localSelectedCuisines = newSet
                                     saveState(newSelectedCuisines = newSet)
                                 }
                             )
@@ -568,14 +663,14 @@ fun MyLikesFilterDialog(
                     Text("Cost Preferences", style = MaterialTheme.typography.titleMedium)
                     val costOptions = listOf("$", "$$", "$$$", "$$$$")
                     costOptions.forEach { cost ->
-                        val isSelected = cost in selectedCosts
+                        val isSelected = cost in localSelectedCosts
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val newSet = selectedCosts.toMutableSet()
+                                    val newSet = localSelectedCosts.toMutableSet()
                                     if (isSelected) newSet.remove(cost) else newSet.add(cost)
-                                    onCostsChange(newSet)
+                                    localSelectedCosts = newSet
                                     saveState(newSelectedCosts = newSet)
                                 }
                                 .padding(vertical = 4.dp),
@@ -584,9 +679,9 @@ fun MyLikesFilterDialog(
                             Checkbox(
                                 checked = isSelected,
                                 onCheckedChange = { checked ->
-                                    val newSet = selectedCosts.toMutableSet()
+                                    val newSet = localSelectedCosts.toMutableSet()
                                     if (checked) newSet.add(cost) else newSet.remove(cost)
-                                    onCostsChange(newSet)
+                                    localSelectedCosts = newSet
                                     saveState(newSelectedCosts = newSet)
                                 }
                             )
@@ -600,14 +695,14 @@ fun MyLikesFilterDialog(
                         Text("No friends found.")
                     } else {
                         allFriendNames.forEach { friendName ->
-                            val isSelected = friendName in selectedFriends
+                            val isSelected = friendName in localSelectedFriends
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        val newSet = selectedFriends.toMutableSet()
+                                        val newSet = localSelectedFriends.toMutableSet()
                                         if (isSelected) newSet.remove(friendName) else newSet.add(friendName)
-                                        onFriendsChange(newSet)
+                                        localSelectedFriends = newSet
                                         saveState(newSelectedFriends = newSet)
                                     }
                                     .padding(vertical = 4.dp),
@@ -616,9 +711,9 @@ fun MyLikesFilterDialog(
                                 Checkbox(
                                     checked = isSelected,
                                     onCheckedChange = { checked ->
-                                        val newSet = selectedFriends.toMutableSet()
+                                        val newSet = localSelectedFriends.toMutableSet()
                                         if (checked) newSet.add(friendName) else newSet.remove(friendName)
-                                        onFriendsChange(newSet)
+                                        localSelectedFriends = newSet
                                         saveState(newSelectedFriends = newSet)
                                     }
                                 )
@@ -661,8 +756,17 @@ fun MyLikesFilterDialog(
                             ) {
                                 Text("Cancel")
                             }
+
                             Button(
-                                onClick = onApply,
+                                onClick = {
+                                    // Apply all local changes to parent state
+                                    onTimeFilterChange(localTimeFilter)
+                                    onCuisinesChange(localSelectedCuisines)
+                                    onCostsChange(localSelectedCosts)
+                                    onFriendsChange(localSelectedFriends)
+                                    onShowOnlyFavouritesChange(localShowOnlyFavourites)
+                                    onApply()
+                                },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text("Apply")

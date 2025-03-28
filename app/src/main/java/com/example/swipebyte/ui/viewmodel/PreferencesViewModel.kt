@@ -35,9 +35,6 @@ class PreferencesViewModel : ViewModel() {
             return
         }
 
-        // Get location radius from shared preferences
-        Log.d("PreferencesViewModel", "Loading user preferences from Firestore")
-
         firestore.collection("users")
             .document(userId)
             .get()
@@ -60,7 +57,6 @@ class PreferencesViewModel : ViewModel() {
             }
             .addOnFailureListener {
                 // Handle failures - clear cache on failure
-                Log.e("PreferencesViewModel", "Error loading preferences: ${it.message}")
                 cachedCuisines = emptyList()
                 cachedPriceRange = emptyList()
                 callback()
@@ -105,7 +101,6 @@ class PreferencesViewModel : ViewModel() {
                 callback(true)
             }
             .addOnFailureListener {
-                Log.e("PreferencesViewModel", "Error saving preferences: ${it.message}")
                 callback(false)
             }
     }
@@ -118,7 +113,6 @@ class PreferencesViewModel : ViewModel() {
             locationRadius = cachedLocationRadius
         )
         preferencesObservable.updatePreferences(currentPreferences)
-        Log.d("PreferencesViewModel", "Updated observable: cuisines=${cachedCuisines.size}, " +
-                "price ranges=${cachedPriceRange.size}, radius=$cachedLocationRadius")
+
     }
 }

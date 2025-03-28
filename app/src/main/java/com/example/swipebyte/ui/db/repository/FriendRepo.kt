@@ -137,14 +137,12 @@ class FriendRepo {
 
     // ✅ Load pending friend requests
     fun loadPendingRequests(userId: String, onResult: (List<Pair<FriendRequest, String>>) -> Unit) {
-        Log.d("FriendRequests", "Loading pending requests for user: $userId")
 
         db.collection("friendRequests")
             .whereEqualTo("receiverId", userId)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { documents ->
-                Log.d("FriendRequests", "Document snapshot retrieved: ${documents.size()}")
 
                 val requests = documents.map { doc ->
                     FriendRequest(
@@ -158,7 +156,6 @@ class FriendRepo {
                 fetchSenderNames(requests, onResult)
             }
             .addOnFailureListener { exception ->
-                Log.e("FriendRequests", "Failed to load friend requests", exception)
                 onResult(emptyList())
             }
     }
@@ -186,7 +183,6 @@ class FriendRepo {
                     }
                 }
                 .addOnFailureListener {
-                    Log.e("FriendRequests", "Failed to fetch name for ${request.senderId}")
 
                     // Default to "Unknown" if fetching fails
                     results.add(request to "Unknown")
@@ -200,7 +196,6 @@ class FriendRepo {
 
     // Get list of user's friends with their display names
     fun loadFriendsList(userId: String, onResult: (List<Pair<String, String>>) -> Unit) {
-        Log.d("FriendRepo", "Loading friends list for user: $userId")
 
         db.collection("friends")
             .where(
@@ -211,7 +206,6 @@ class FriendRepo {
             )
             .get()
             .addOnSuccessListener { documents ->
-                Log.d("FriendRepo", "Retrieved ${documents.size()} friendships")
 
                 if (documents.isEmpty) {
                     onResult(emptyList())
@@ -230,7 +224,6 @@ class FriendRepo {
                 fetchFriendNames(friendships, onResult)
             }
             .addOnFailureListener { exception ->
-                Log.e("FriendRepo", "Failed to load friends list", exception)
                 onResult(emptyList())
             }
     }
@@ -258,7 +251,6 @@ class FriendRepo {
                     }
                 }
                 .addOnFailureListener {
-                    Log.e("FriendRepo", "Failed to fetch name for $friendId")
 
                     // Default to "Unknown" if fetching fails
                     results.add(friendId to "Unknown")

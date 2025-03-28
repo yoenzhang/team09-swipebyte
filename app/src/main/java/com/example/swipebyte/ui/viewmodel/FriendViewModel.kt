@@ -101,7 +101,6 @@ class FriendViewModel : ViewModel() {
                     _friendsList.postValue(friends)
                 }
             } catch (e: Exception) {
-                Log.e("FriendViewModel", "Error loading friends list", e)
                 _friendsList.postValue(emptyList())
                 _operationResult.postValue(Result.failure(Exception("Failed to load friends list")))
             }

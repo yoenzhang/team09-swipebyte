@@ -15,7 +15,7 @@ data class Restaurant(
     val priceRange: String? = "",
     val location: GeoPoint = GeoPoint(0.0, 0.0),
     val imageUrls: List<String> = emptyList(),
-    val id: String = "",
+    var id: String = "",
     val averageRating: Float = 0f,
     val userRating: Float = 0f,
     val yelpRating: Float = 0f,
@@ -30,7 +30,6 @@ class RestaurantQueryable {
     companion object {
         private val restaurantList : List<Restaurant> = emptyList()
 
-        // Updated to accept a context for radius preference
         suspend fun filterNearbyRestaurants(
             allRestaurants: List<Restaurant>,
             context: Context? = null
@@ -47,7 +46,6 @@ class RestaurantQueryable {
                 ?.getFloat("location_radius", 5.0f)?.toDouble()
                 ?: 5.0
 
-            // Convert km to meters for distance calculation
             val radiusInMeters = radiusInKm * 1000
 
             for (restaurant in allRestaurants) {
@@ -67,15 +65,14 @@ class RestaurantQueryable {
         }
 
         fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-            // Haversine formula for distance calculation
-            val r = 6371  // Earth's radius in kilometers
+            val r = 6371 
             val latDiff = Math.toRadians(lat2 - lat1)
             val lonDiff = Math.toRadians(lon2 - lon1)
             val a = sin(latDiff / 2) * sin(latDiff / 2) +
                     cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
                     sin(lonDiff / 2) * sin(lonDiff / 2)
             val c = 2 * atan2(sqrt(a), sqrt(1 - a))
-            return r * c  // Returns the distance in kilometers
+            return r * c  // in km 
         }
     }
 }
