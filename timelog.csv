@@ -6,13 +6,13 @@ Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Ta
 2025-02-05,0.5,0.5,0.5,0.5,05,go over p3 requirements
 2025-02-10,2,0,4,0,4, create ui pages
 2025-02-11,2,4,0,4,0, set up database
+2025-02-12,0,0,2,3,2, nav icons + prepare for class models (user, rest, deals, swipe), 
 2025-02-12 3,4,2,3,2 worked on UI
 2025-02-19,5,0,3,3,3, add other ui components
 2024-02-20,2,2,2,2,2, go over p4 requirements
 2024-02-24,3,0,3,0,3, clean up ui and motion controls
 2024-02-27,0,4,0,1,0, finish db schema for p4
 2024-02-28,3,0,0,5,0, set up yelp api key
-2024-03-0,4,0,0,0,0, location with new yelp data
 2024-03-1,2,3,2,3,2, design talk + api fix
 2024-03-4,3,3,3,3,3, api implement + bug fixes + UI enhanced
 2024-03-07,2,0,0,2,2, add deals of the day
@@ -26,15 +26,15 @@ Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Ta
 2024-03-17,4,0,0,5,4, add friends list and friends table in firebase + filters fixed + map
 2024-03-19,1,1,1,1,1, start cleaning code in classes
 2024-03-19,3,0,0,0,0, implement observer in homeview
-2024-03-18,3,4,4,1,1, timestamps for likes + swipe count, ratings + distnace
+2024-03-18,2,4,4,1,1, timestamps for likes + swipe count, ratings + distnace
 2024-03-19,3,1,2,3,3, fix bugs in comm faves view model
 2024-03-20,2,0,2,2,2, add friends request ability and friends filtering in my likes
 2024-03-24,0,4,0,0,0, add memento class to filters
-2024-03-24,4,0,2,5,1, observer restructure
+2024-03-24,3,0,2,5,1, observer restructure
 2024-03-25,0,4,5,1,3, observer restructure work on bugs list
 2024-03-26,1,3,6,1,3, Update bugs from bug list + memento
 2024-03-27,3,5,3,2,2, merge conflicts + caching locations for comm faves
-2024-03-28,5,3,2,3,2, fixed the filters + location
+2024-03-28,5,3,2,3,2, fixed the filters + location + clean up
 2024-03-28,1,1,1,1,1, Team meeting
 2024-03-29,0,0,0,0,0, TBD
 2024-03-30,0,0,0,0,0, TBD
