@@ -58,6 +58,11 @@ android {
             excludes += "META-INF/notice.txt"
             excludes += "META-INF/ASL2.0"
             excludes += "META-INF/*.kotlin_module"
+            // Add these new entries to resolve JUnit 5 conflicts
+            excludes += "META-INF/LICENSE.md"
+            excludes += "META-INF/LICENSE-notice.md"
+            excludes += "META-INF/AL2.0"
+            excludes += "META-INF/LGPL2.1"
         }
     }
 }
@@ -73,6 +78,23 @@ configurations.all {
 }
 
 dependencies {
+
+    // Testing dependencies
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("junit:junit:4.13.2")
+
+    // Android Architecture Components testing
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+
+    // Coroutines testing
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+
+    // Mockk for Kotlin-friendly mocking
+    testImplementation("io.mockk:mockk:1.13.5")
+    androidTestImplementation("io.mockk:mockk-android:1.13.5")
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    implementation(libs.androidx.navigation.testing)
     // Testing dependencies (removing duplicates)
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
