@@ -135,7 +135,6 @@ class RestaurantRepository {
                 }
             }
 
-            Log.d("RestaurantRepo", "Getting restaurants with distance filter: $effectiveMaxDistance km")
 
             // Use provided filters or fall back to user preferences
             val priceFilters = if (overridePrice.isNotEmpty()) {
@@ -168,7 +167,6 @@ class RestaurantRepository {
                 try {
                     val cacheSnapshot = restaurantCollection.get(Source.CACHE).await()
                     if (!cacheSnapshot.isEmpty) {
-                        Log.d("RestaurantRepo", "Loaded ${cacheSnapshot.size()} restaurants from cache")
                         val restaurants = cacheSnapshot.documents.mapNotNull { doc ->
                             mapDocumentToRestaurant(doc)
                         }
@@ -183,7 +181,6 @@ class RestaurantRepository {
                             effectiveMaxDistance
                         )
 
-                        Log.d("RestaurantRepo", "Filtered to ${filteredRestaurants.size} restaurants within ${effectiveMaxDistance}km")
                         return@withContext filteredRestaurants
                     }
                 } catch (e: Exception) {
@@ -226,11 +223,9 @@ class RestaurantRepository {
                     detailRestaurants
                 }
 
-                Log.d("RestaurantRepo", "Retrieved ${detailRestaurants.size} restaurants, filtered to ${filteredRestaurants.size} within ${effectiveMaxDistance}km")
                 filteredRestaurants
 
             } catch (e: Exception) {
-                Log.e("RestaurantRepo", "Error fetching from Yelp: ${e.message}")
                 // Fallback to Firestore SERVER if Yelp fails
                 try {
                     val snapshot = restaurantCollection.get(Source.SERVER).await()
@@ -247,7 +242,6 @@ class RestaurantRepository {
                         effectiveMaxDistance
                     )
                 } catch (fallbackE: Exception) {
-                    Log.e("RestaurantRepo", "Error fetching from Firestore fallback: ${fallbackE.message}")
                     emptyList()
                 }
             }
@@ -340,7 +334,6 @@ class RestaurantRepository {
     private suspend fun fetchBusinessDetailsOptimized(restaurant: Restaurant): Restaurant {
         return try {
             val response = yelpAPI.getBusinessDetails(restaurant.id, authHeader = "Bearer $yelpApiKey")
-            Log.d("RestaurantRepo", "Successfully fetched details for ${restaurant.name}")
             restaurant.copy(
                 hours = response.hours ?: restaurant.hours,
                 imageUrls = response.photos.ifEmpty { restaurant.imageUrls }
@@ -376,7 +369,6 @@ class RestaurantRepository {
                     batch.set(docRef, restaurant, SetOptions.merge())
                 }
                 batch.commit().await()
-                Log.d("RestaurantRepo", "Successfully updated ${restaurants.size} restaurants in Firebase")
             } catch (e: Exception) {
                 Log.e("RestaurantRepo", "Error storing in Firebase: ${e.message}")
             }

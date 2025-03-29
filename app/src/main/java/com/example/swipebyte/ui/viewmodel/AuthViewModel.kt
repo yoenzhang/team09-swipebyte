@@ -22,7 +22,6 @@ class AuthViewModel : ViewModel() {
     init {
         firebaseAuth.addAuthStateListener { auth ->
             val user = auth.currentUser
-            Log.d("AuthViewModel", "Auth state changed: User = ${user?.email ?: "No user"}")
 
             if (user != null) {
                 _currentUserId.value = user.uid
@@ -30,7 +29,6 @@ class AuthViewModel : ViewModel() {
                     if (reloadTask.isSuccessful) {
                         _isLoggedIn.value = firebaseAuth.currentUser != null
                     } else {
-                        Log.e("AuthViewModel", "User reload failed: ${reloadTask.exception?.message}")
                         _isLoggedIn.value = false
                     }
                 }
@@ -54,12 +52,10 @@ class AuthViewModel : ViewModel() {
                 if (task.isSuccessful) {
                     _isLoggedIn.value = true
                     _currentUserId.value = firebaseAuth.currentUser?.uid  // Set user ID on login
-                    Log.d("AuthViewModel", "Login successful: ${firebaseAuth.currentUser?.email}")
                     UserQueryable.saveUserDataToFirestore()
                     onResult(true)
                 } else {
                     _isLoggedIn.value = false
-                    Log.e("AuthViewModel", "Login failed: ${task.exception?.message}")
                     onResult(false)
                 }
             }
@@ -67,7 +63,6 @@ class AuthViewModel : ViewModel() {
 
     fun signUp(name: String, email: String?, password: String?, onResult: (Boolean) -> Unit) {
         if (name.isEmpty() || email.isNullOrEmpty() || password.isNullOrEmpty()) {
-            Log.e("AuthViewModel", "Name, email or password is empty")
             onResult(false)  // Return false to indicate failure
             return
         }
@@ -97,7 +92,6 @@ class AuthViewModel : ViewModel() {
                         }
                 } else {
                     _isLoggedIn.value = false
-                    Log.e("AuthViewModel", "Sign Up failed: ${task.exception?.message}")
                     onResult(false)
                 }
             }
@@ -117,7 +111,6 @@ class AuthViewModel : ViewModel() {
     fun updateDisplayName(newDisplayName: String, callback: (Boolean, String?) -> Unit) {
         val user = firebaseAuth.currentUser
         if (user == null) {
-            Log.e("AuthViewModel", "Update display name failed: No user is signed in")
             callback(false, "No user is signed in")
             return
         }
@@ -129,12 +122,10 @@ class AuthViewModel : ViewModel() {
         user.updateProfile(profileUpdates)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Log.d("AuthViewModel", "Display name updated successfully to: $newDisplayName")
                     // Update the display name in Firestore too
                     UserQueryable.saveUserDataToFirestore(newDisplayName)
                     callback(true, null)
                 } else {
-                    Log.e("AuthViewModel", "Failed to update display name: ${task.exception?.message}")
                     callback(false, task.exception?.message)
                 }
             }
@@ -144,7 +135,6 @@ class AuthViewModel : ViewModel() {
     fun updatePassword(newPassword: String, callback: (Boolean, String?) -> Unit) {
         val user = firebaseAuth.currentUser
         if (user == null) {
-            Log.e("AuthViewModel", "Update password failed: No user is signed in")
             callback(false, "No user is signed in")
             return
         }
@@ -152,10 +142,8 @@ class AuthViewModel : ViewModel() {
         user.updatePassword(newPassword)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Log.d("AuthViewModel", "Password updated successfully")
                     callback(true, null)
                 } else {
-                    Log.e("AuthViewModel", "Failed to update password: ${task.exception?.message}")
                     callback(false, task.exception?.message ?: "Password update failed")
                 }
             }
@@ -163,14 +151,12 @@ class AuthViewModel : ViewModel() {
     fun reauthenticateAndUpdatePassword(currentPassword: String, newPassword: String, callback: (Boolean, String?) -> Unit) {
         val user = firebaseAuth.currentUser
         if (user == null) {
-            Log.e("AuthViewModel", "Update password failed: No user is signed in")
             callback(false, "No user is signed in")
             return
         }
 
         val email = user.email
         if (email.isNullOrEmpty()) {
-            Log.e("AuthViewModel", "Update password failed: User email is missing")
             callback(false, "User email is missing")
             return
         }
@@ -186,15 +172,12 @@ class AuthViewModel : ViewModel() {
                     user.updatePassword(newPassword)
                         .addOnCompleteListener { updateTask ->
                             if (updateTask.isSuccessful) {
-                                Log.d("AuthViewModel", "Password updated successfully")
                                 callback(true, null)
                             } else {
-                                Log.e("AuthViewModel", "Failed to update password: ${updateTask.exception?.message}")
                                 callback(false, updateTask.exception?.message ?: "Password update failed")
                             }
                         }
                 } else {
-                    Log.e("AuthViewModel", "Re-authentication failed: ${reauthTask.exception?.message}")
                     callback(false, "Current password is incorrect or authentication expired")
                 }
             }

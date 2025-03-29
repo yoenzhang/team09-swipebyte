@@ -41,7 +41,6 @@ import kotlinx.coroutines.withContext
 @SuppressLint("MissingPermission")
 @Composable
 fun LocationView(navController: NavController) {
-    Log.d("LocationView", "Initializing LocationView")
 
     // State for location
     var latitude by remember { mutableStateOf(43.6532) } // Default to Toronto
@@ -104,7 +103,6 @@ fun LocationView(navController: NavController) {
 
     // Get initial user location
     LaunchedEffect(Unit) {
-        Log.d("LocationView", "Loading initial location data")
 
         try {
             val userLocation = withContext(Dispatchers.IO) {
@@ -112,19 +110,16 @@ fun LocationView(navController: NavController) {
             }
 
             if (userLocation != null) {
-                Log.d("LocationView", "Using saved user location: ${userLocation.latitude}, ${userLocation.longitude}")
                 latitude = userLocation.latitude
                 longitude = userLocation.longitude
                 circleCenter = LatLng(latitude, longitude)
                 cameraPositionState.position = CameraPosition.fromLatLngZoom(circleCenter, 14f)
             } else if (hasLocationPermission) {
                 // Try getting device location as fallback
-                Log.d("LocationView", "No saved location, trying device location")
                 val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
                 try {
                     val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                     if (lastKnownLocation != null) {
-                        Log.d("LocationView", "Using device location: ${lastKnownLocation.latitude}, ${lastKnownLocation.longitude}")
                         latitude = lastKnownLocation.latitude
                         longitude = lastKnownLocation.longitude
                         circleCenter = LatLng(latitude, longitude)
@@ -134,7 +129,6 @@ fun LocationView(navController: NavController) {
                     }
                 } catch (e: Exception) {
                     Log.e("LocationView", "Error getting device location: ${e.message}")
-                    // Use default Toronto coordinates
                 }
             }
 
@@ -142,11 +136,9 @@ fun LocationView(navController: NavController) {
             val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)
             radius = sharedPrefs.getFloat("location_radius", 5.0f).toDouble()
             circleRadius = radius * 1000 // Convert km to meters
-            Log.d("LocationView", "Loaded radius preference: $radius km")
 
             isLoading = false
         } catch (e: Exception) {
-            Log.e("LocationView", "Error in LaunchedEffect: ${e.message}")
             isLoading = false
         }
     }
@@ -154,7 +146,6 @@ fun LocationView(navController: NavController) {
     // Update circle when radius changes
     LaunchedEffect(radius) {
         circleRadius = radius * 1000 // Convert km to meters
-        Log.d("LocationView", "Updated circle radius to: $radius km")
     }
 
     // Main column with scrolling
@@ -215,7 +206,6 @@ fun LocationView(navController: NavController) {
                         latitude = markerState.position.latitude
                         longitude = markerState.position.longitude
                         circleCenter = markerState.position
-                        Log.d("LocationView", "Marker moved to: ${latitude}, ${longitude}")
                     }
 
                     GoogleMap(
@@ -229,7 +219,6 @@ fun LocationView(navController: NavController) {
                             longitude = latLng.longitude
                             circleCenter = latLng
                             markerState.position = latLng
-                            Log.d("LocationView", "Map clicked at: ${latLng.latitude}, ${latLng.longitude}")
                         },
                         onMapLoaded = {
                             Log.d("LocationView", "Map loaded successfully")
@@ -280,7 +269,6 @@ fun LocationView(navController: NavController) {
                     FloatingActionButton(
                         onClick = {
                             if (!hasLocationPermission) {
-                                Log.d("LocationView", "Location permission not granted")
                                 return@FloatingActionButton
                             }
 
@@ -288,7 +276,6 @@ fun LocationView(navController: NavController) {
                             try {
                                 val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                                 if (lastKnownLocation != null) {
-                                    Log.d("LocationView", "My Location button: ${lastKnownLocation.latitude}, ${lastKnownLocation.longitude}")
                                     latitude = lastKnownLocation.latitude
                                     longitude = lastKnownLocation.longitude
 
@@ -339,7 +326,6 @@ fun LocationView(navController: NavController) {
             value = radius.toFloat(),
             onValueChange = {
                 radius = it.toDouble()
-                Log.d("LocationView", "Radius changed to: $radius km")
             },
             valueRange = 1f..25f,
             steps = 24,
@@ -413,7 +399,6 @@ fun LocationView(navController: NavController) {
 
             Button(
                 onClick = {
-                    Log.d("LocationView", "Saving location: $latitude, $longitude with radius: $radius km")
                     // Save location to user profile
                     scope.launch {
                         try {
@@ -428,7 +413,6 @@ fun LocationView(navController: NavController) {
                             }
                             preferencesViewModel.loadLocationRadius(context)
 
-                            Log.d("LocationView", "Location saved successfully")
 
                             navController.popBackStack()
                         } catch (e: Exception) {

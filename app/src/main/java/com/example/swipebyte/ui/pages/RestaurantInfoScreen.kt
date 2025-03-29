@@ -2,6 +2,7 @@ package com.example.swipebyte.ui.pages
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,13 +13,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,13 +29,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
+import com.example.swipebyte.ui.db.models.FavouriteQueryable
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.data.models.YelpHours
 import java.util.Locale
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.launch
 import java.util.Calendar
+import android.util.Log
+import com.google.firebase.firestore.GeoPoint
 
 @Composable
 fun RestaurantInfoScreen(
@@ -46,6 +47,24 @@ fun RestaurantInfoScreen(
     onDismiss: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Track if this restaurant is in favorites
+    var isInFavorites by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    
+    // Check if restaurant is in favorites when screen loads
+    LaunchedEffect(restaurant.id) {
+        isLoading = true
+        try {
+            isInFavorites = FavouriteQueryable.isInFavourites(restaurant.id)
+        } catch (e: Exception) {
+        } finally {
+            isLoading = false
+        }
+    }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -85,6 +104,65 @@ fun RestaurantInfoScreen(
                         tint = Color.White
                     )
                 }
+                
+                // Favorite button in top-right corner
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            isLoading = true
+                            try {
+                                val success = if (!isInFavorites) {
+                                    FavouriteQueryable.addToFavourites(restaurant.id)
+                                } else {
+                                    FavouriteQueryable.removeFromFavourites(restaurant.id)
+                                }
+                                
+                                if (success) {
+                                    isInFavorites = !isInFavorites
+                                    Toast.makeText(
+                                        context,
+                                        if (isInFavorites) "Added to favorites" else "Removed from favorites",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Failed to update favorites",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    "Error: ${e.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } finally {
+                                isLoading = false
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .size(42.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                        .align(Alignment.TopEnd)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isInFavorites) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = if (isInFavorites) "Remove from favorites" else "Add to favorites",
+                            tint = if (isInFavorites) Color(0xFFFF4081) else Color.White
+                        )
+                    }
+                }
+                
                 // Gradient overlay for better text visibility
                 Box(
                     modifier = Modifier
@@ -147,10 +225,6 @@ fun RestaurantInfoScreen(
                             text = restaurant.priceRange ?: "$$",
                             style = MaterialTheme.typography.bodyLarge
                         )
-                        Text(
-                            text = String.format(Locale.US, "%.2f", restaurant.distance) + " km away",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
                     }
                 }
                 Divider()
@@ -162,7 +236,7 @@ fun RestaurantInfoScreen(
                 )
                 // Replace the placeholder text below with actual restaurant description if available
                 Text(
-                    text = "Restaurant details go here",
+                    text = "Taste buds are in heaven",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Divider(modifier = Modifier.padding(vertical = 16.dp))

@@ -48,10 +48,8 @@ class SwipeQueryable {
                     recentSwipes[restaurantId] = timestamp
                 }
 
-                Log.d("SwipeRepo", "Found ${recentSwipes.size} recent swipes within last ${timeframeMillis / (60 * 60 * 1000)} hours")
                 recentSwipes
             } catch (e: Exception) {
-                Log.e("SwipeRepo", "Error getting recent swipes", e)
                 emptyMap()
             }
         }
@@ -100,10 +98,8 @@ class SwipeQueryable {
 
                 userSwipesCollection.document(documentId).delete().await()
 
-                Log.d("SwipeRepo", "Successfully deleted swipe for restaurant $restaurantId")
                 return true
             } catch (e: Exception) {
-                Log.e("SwipeRepo", "Error deleting swipe for restaurant $restaurantId", e)
                 return false
             }
         }

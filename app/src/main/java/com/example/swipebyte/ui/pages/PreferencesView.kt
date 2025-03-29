@@ -37,7 +37,6 @@ fun PreferencesView(
     val scrollState = rememberScrollState()
 
 
-    Log.d("selectedCuuisines", selectedCuisines.toString())
     // Trigger load preferences on first composition
     LaunchedEffect(true) {
         preferencesViewModel.loadPreferences {

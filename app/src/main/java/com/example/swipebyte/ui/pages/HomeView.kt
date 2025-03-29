@@ -74,7 +74,7 @@ import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.isActive
 import java.util.Calendar
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.ripple.rememberRipple
 import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
 
 
@@ -289,7 +289,6 @@ fun EnhancedRestaurantCard(
                                                 // Don't reference variables from parent scope
                                                 onSwipeUp()
                                             } catch (e: Exception) {
-                                                Log.e("HomeView", "Error during swipe up: ${e.message}")
                                                 // Reset card position
                                                 offsetY.animateTo(0f)
                                                 showMessageOverlay = false
@@ -300,7 +299,6 @@ fun EnhancedRestaurantCard(
                                             onSwipeDown()
                                         }
                                     } catch (e: Exception) {
-                                        Log.e("HomeView", "Error during vertical swipe: ${e.message}")
                                         // Reset the card position on error
                                         offsetX.animateTo(0f)
                                         offsetY.animateTo(0f)
@@ -727,7 +725,6 @@ fun HomeView(navController: NavController) {
                         Toast.makeText(context, "Failed to undo action. Try again.", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
-                    Log.e("HomeView", "Error undoing swipe: ${e.message}", e)
                     Toast.makeText(context, "Failed to undo action: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
 
@@ -750,7 +747,6 @@ fun HomeView(navController: NavController) {
 
     // Load preferences and restaurants when we start or need to refresh
     LaunchedEffect(refreshTrigger) {
-        Log.d("HomeView", "Loading restaurants, refreshTrigger: $refreshTrigger")
 
         // Load location radius from SharedPreferences into the PreferencesViewModel
         preferencesViewModel.loadLocationRadius(context)
@@ -772,7 +768,6 @@ fun HomeView(navController: NavController) {
     LaunchedEffect(Unit) {
         while (isActive) {
             delay(15*60 * 1000)
-            Log.d("HomeView", "Looking for new restaurants - auto-refresh")
             restaurantViewModel.loadRestaurants(context)
         }
     }
@@ -785,7 +780,6 @@ fun HomeView(navController: NavController) {
             val currentRoute = destination.route ?: ""
 
             if (currentRoute == Screen.Home.route && previousDestination != "" && previousDestination != Screen.Home.route) {
-                Log.d("HomeView", "Back to home from $previousDestination - refreshing")
                 refreshTrigger++
                 coroutineScope.launch {
                     delay(100)
@@ -946,7 +940,6 @@ fun HomeView(navController: NavController) {
                                 coroutineScope.launch {
                                     val isLiked = direction == "Right"
                                     try {
-                                        Log.d("HomeView", "Recording ${if (isLiked) "LIKE" else "DISLIKE"} for ${restaurantList[currentIndex].name}")
 
                                         val currentRestaurant = restaurantList[currentIndex]
                                         lastSwipedRestaurant = currentRestaurant.copy()
@@ -966,13 +959,11 @@ fun HomeView(navController: NavController) {
                                             lastSwipedRestaurant = null
                                             lastSwipeAction = null
                                             Toast.makeText(context, "Failed to save your preference", Toast.LENGTH_SHORT).show()
-                                            Log.e("HomeView", "Failed to record swipe: ${e.message}", e)
                                         }
 
                                         isCardSwiping = false
                                         refreshTrigger++
                                     } catch (e: Exception) {
-                                        Log.e("HomeView", "Oops! Swipe recording failed: ${e.message}", e)
                                         isCardSwiping = false
                                     }
                                 }
@@ -1083,49 +1074,58 @@ fun RestaurantDetailScreen(
     onDismiss: () -> Unit,
     onLike: () -> Unit,
     onDislike: () -> Unit,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit
+    onPrevious: () -> Unit = {},
+    onNext: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
-
-    // Intercept and consume all gesture inputs to prevent swiping on this screen
-    val interactionSource = remember { MutableInteractionSource() }
-
+    val coroutineScope = rememberCoroutineScope()
+    
+    val restaurantImages = remember {
+        if (restaurant.imageUrls.isNotEmpty()) {
+            restaurant.imageUrls
+        } else {
+            listOf("https://images.unsplash.com/photo-1514933651103-005eec06c04b")
+        }
+    }
+    
+    var currentImageIndex by remember { mutableIntStateOf(0) }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            // Add this modifier to consume all pointer input events
             .pointerInput(Unit) {
-                detectDragGestures { _, _ -> }
+                detectDragGestures(
+                    onDragStart = { _ -> },
+                    onDragEnd = { },
+                    onDragCancel = { },
+                    onDrag = { _, _ -> }
+                )
             }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            // Header image with explicit gesture blocking
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(250.dp)
-                    // Explicitly consume all touch events on the image
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = null
-                    ) { /* Consume click */ }
             ) {
-                // Use first image from the list or fallback
-                val imageUrl = if (restaurant.imageUrls.isNotEmpty()) {
-                    restaurant.imageUrls[0]
-                } else {
-                    "https://images.unsplash.com/photo-1514933651103-005eec06c04b" // Fallback image
-                }
-
+                val imageUrl = restaurantImages[currentImageIndex]
+                
                 Image(
                     painter = rememberAsyncImagePainter(model = imageUrl),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
+                    contentDescription = "Restaurant photo ${currentImageIndex + 1} of ${restaurantImages.size}",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            // Move to the next image in the gallery
+                            currentImageIndex = (currentImageIndex + 1) % restaurantImages.size
+                        },
                     contentScale = ContentScale.Crop
                 )
 
@@ -1143,6 +1143,26 @@ fun RestaurantDetailScreen(
                         contentDescription = "Back",
                         tint = Color.White
                     )
+                }
+
+                // Image counter indicator
+                if (restaurantImages.size > 1) {
+                    Box(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .background(
+                                color = Color.Black.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .align(Alignment.TopEnd)
+                    ) {
+                        Text(
+                            text = "${currentImageIndex + 1}/${restaurantImages.size}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 }
 
                 // Gradient overlay
@@ -1174,7 +1194,6 @@ fun RestaurantDetailScreen(
                 )
             }
 
-            // Details content - the scroll behavior is preserved but swipes won't trigger card gestures
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1307,44 +1326,6 @@ fun RestaurantDetailScreen(
                     imageVector = Icons.Default.Favorite,
                     contentDescription = "Like",
                     modifier = Modifier.size(32.dp)
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .align(Alignment.TopEnd),
-            horizontalArrangement = Arrangement.End
-        ) {
-            IconButton(
-                onClick = { onDismiss(); onPrevious() },
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                    .padding(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Previous Restaurant",
-                    tint = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            IconButton(
-                onClick = { onDismiss(); onNext() },
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                    .padding(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowForward,
-                    contentDescription = "Next Restaurant",
-                    tint = Color.White
                 )
             }
         }

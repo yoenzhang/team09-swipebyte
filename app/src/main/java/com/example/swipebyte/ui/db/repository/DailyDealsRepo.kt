@@ -45,7 +45,6 @@ class DailyDealsRepository {
                 mapDocumentToDailyDeal(doc)
             }
         } catch (e: Exception) {
-            Log.e("DailyDealsRepo", "Error fetching daily deals: ${e.message}")
             emptyList()
         }
     }
@@ -76,7 +75,6 @@ class DailyDealsRepository {
                 deals = dealsMap
             )
         } catch (e: Exception) {
-            Log.e("DailyDealsRepo", "Error mapping document to DailyDeal: ${e.message}")
             null
         }
     }
