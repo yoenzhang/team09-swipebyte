@@ -10,6 +10,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.LiveData
@@ -164,7 +165,8 @@ fun BottomNavigationBar(navController: NavHostController) {
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     unselectedIconColor = Color.LightGray,
                     indicatorColor = Color.Transparent
-                )
+                ),
+                modifier = Modifier.testTag(screen.title) // Add test tag with screen title
             )
         }
     }

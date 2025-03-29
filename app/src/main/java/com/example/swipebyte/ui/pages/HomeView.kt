@@ -75,6 +75,8 @@ import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.isActive
 import java.util.Calendar
 import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.ui.platform.testTag
 import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
 
 
@@ -177,6 +179,7 @@ fun EnhancedRestaurantCard(
             .fillMaxSize()
             .background(backgroundColor)
             .padding(16.dp)
+            .testTag("restaurantCardContainer")
     ) {
         // Swipe message overlay
         if (showMessageOverlay) {
@@ -367,7 +370,8 @@ fun EnhancedRestaurantCard(
                             }
                         }
                     )
-                },
+                }
+                .testTag("restaurantCard"), // Add test tag for card
             shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
         ) {
@@ -382,7 +386,9 @@ fun EnhancedRestaurantCard(
                         Image(
                             painter = rememberAsyncImagePainter(model = imageUrls[page]),
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("restaurantImage"), // Add test tag for image
                             contentScale = ContentScale.Crop
                         )
 
@@ -403,6 +409,7 @@ fun EnhancedRestaurantCard(
                                         pagerState.animateScrollToPage(targetPage)
                                     }
                                 }
+                                .testTag("leftNavArea") // Add test tag
                         )
 
                         // Right image navigation area
@@ -421,6 +428,7 @@ fun EnhancedRestaurantCard(
                                         )
                                     }
                                 }
+                                .testTag("rightNavArea") // Add test tag
                         )
                     }
                 }
@@ -431,6 +439,7 @@ fun EnhancedRestaurantCard(
                         .padding(24.dp)
                         .align(Alignment.TopStart)
                         .alpha((-(offsetX.value) / 100f).coerceIn(0f, 1f))
+                        .testTag("leftSwipeIndicator") // Add test tag
                 ) {
                     Card(
                         shape = RoundedCornerShape(8.dp),
@@ -454,6 +463,7 @@ fun EnhancedRestaurantCard(
                         .padding(24.dp)
                         .align(Alignment.TopEnd)
                         .alpha((offsetX.value / 100f).coerceIn(0f, 1f))
+                        .testTag("rightSwipeIndicator") // Add test tag
                 ) {
                     Card(
                         shape = RoundedCornerShape(8.dp),
@@ -477,6 +487,7 @@ fun EnhancedRestaurantCard(
                         .padding(24.dp)
                         .align(Alignment.TopCenter)
                         .alpha((-(offsetY.value) / 100f).coerceIn(0f, 1f))
+                        .testTag("upSwipeIndicator") // Add test tag
                 ) {
                     Card(
                         shape = RoundedCornerShape(8.dp),
@@ -500,6 +511,7 @@ fun EnhancedRestaurantCard(
                         .padding(24.dp)
                         .align(Alignment.BottomCenter)
                         .alpha((offsetY.value / 100f).coerceIn(0f, 1f))
+                        .testTag("downSwipeIndicator") // Add test tag
                 ) {
                     Card(
                         shape = RoundedCornerShape(8.dp),
@@ -522,7 +534,8 @@ fun EnhancedRestaurantCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .align(Alignment.BottomCenter),
+                        .align(Alignment.BottomCenter)
+                        .testTag("restaurantInfoPanel"), // Add test tag
                     contentAlignment = Alignment.Center
                 ) {
                     Card(
@@ -548,7 +561,8 @@ fun EnhancedRestaurantCard(
                                         fontWeight = FontWeight.Bold
                                     ),
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.testTag("restaurantName") // Add test tag for restaurant name
                                 )
 
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -567,7 +581,8 @@ fun EnhancedRestaurantCard(
 
                                     Text(
                                         text = String.format(Locale.US, "%.1f", restaurant.yelpRating),
-                                        style = MaterialTheme.typography.bodyMedium
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.testTag("restaurantRating") // Add test tag
                                     )
 
                                     Text(
@@ -580,14 +595,16 @@ fun EnhancedRestaurantCard(
                                         text = restaurant.cuisineType.joinToString(", "),
                                         style = MaterialTheme.typography.bodyMedium,
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.testTag("restaurantCuisine") // Add test tag
                                     )
                                 }
 
                                 Text(
                                     text = String.format(Locale.US, "%.2f", restaurant.distance) + "km away",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray
+                                    color = Color.Gray,
+                                    modifier = Modifier.testTag("restaurantDistance") // Add test tag
                                 )
                             }
 
@@ -603,6 +620,7 @@ fun EnhancedRestaurantCard(
                                         .clip(CircleShape)
                                         .background(Color(0xFFE53935))
                                         .size(44.dp)
+                                        .testTag("detailsButton") // Add test tag for details button
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Info,
@@ -620,6 +638,7 @@ fun EnhancedRestaurantCard(
                     modifier = Modifier
                         .padding(16.dp)
                         .align(Alignment.TopCenter)
+                        .testTag("paginationDots") // Add test tag
                 ) {
                     Card(
                         shape = RoundedCornerShape(16.dp),
@@ -649,7 +668,6 @@ fun EnhancedRestaurantCard(
         }
     }
 }
-
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView(navController: NavController) {
