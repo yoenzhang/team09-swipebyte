@@ -7,7 +7,7 @@ Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Ta
 2025-02-05,0.5,0.5,0.5,0.5,05,go over p3 requirements
 2025-02-10,2,0,4,0,4, create ui pages
 2025-02-11,2,4,0,4,0, set up database
-2025-02-12,0,0,2,3,2, nav icons + prepare for class models (user, rest, deals, swipe), 
+2025-02-12,0,0,2,3,2, nav icons + prepare for class models (user rest deals swipe)
 2025-02-12 3,4,2,3,2 worked on UI
 2025-02-19,5,0,3,3,3, add other ui components
 2024-02-20,2,2,2,2,2, go over p4 requirements
@@ -37,8 +37,8 @@ Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Ta
 2024-03-27,3,5,3,2,2, merge conflicts + caching locations for comm faves
 2024-03-28,5,3,2,3,2, fixed the filters + location + clean up
 2024-03-28,1,1,1,1,1, Team meeting
-2024-03-29,4,3,3,3,4, Added thorough testing to data models and pages
-2024-03-30,0,0,0,0,0, TBD
+2024-03-29,4,3,3,3,5, Added thorough testing to data models and pages
+2024-03-30,2,5,2,2,1, clean up code in files, fix comm faves filtering on location and time
 2024-03-31,0,0,0,0,0, TBD
 2024-04-01,0,0,0,0,0,Report 
 2024-04-02,0,0,0,0,0,Report
