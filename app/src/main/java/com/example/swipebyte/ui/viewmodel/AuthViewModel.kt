@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.example.swipebyte.ui.data.models.UserQueryable
+import com.example.swipebyte.ui.db.repository.FirebaseUserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 
@@ -52,7 +52,7 @@ class AuthViewModel : ViewModel() {
                 if (task.isSuccessful) {
                     _isLoggedIn.value = true
                     _currentUserId.value = firebaseAuth.currentUser?.uid  // Set user ID on login
-                    UserQueryable.saveUserDataToFirestore()
+                    FirebaseUserRepository.getInstance().saveUserData()
                     onResult(true)
                 } else {
                     _isLoggedIn.value = false
@@ -87,7 +87,7 @@ class AuthViewModel : ViewModel() {
                             }
 
                             // Save to Firestore regardless of profile update success
-                            UserQueryable.saveUserDataToFirestore(name)
+                            FirebaseUserRepository.getInstance().saveUserData(name)
                             onResult(true)
                         }
                 } else {
@@ -123,7 +123,7 @@ class AuthViewModel : ViewModel() {
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     // Update the display name in Firestore too
-                    UserQueryable.saveUserDataToFirestore(newDisplayName)
+                    FirebaseUserRepository.getInstance().saveUserData(newDisplayName)
                     callback(true, null)
                 } else {
                     callback(false, task.exception?.message)

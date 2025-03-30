@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.swipebyte.ui.data.models.UserQueryable
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -34,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.swipebyte.ui.db.repository.FirebaseUserRepository
 import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -106,7 +106,7 @@ fun LocationView(navController: NavController) {
 
         try {
             val userLocation = withContext(Dispatchers.IO) {
-                UserQueryable.getUserLocation()
+                FirebaseUserRepository.getInstance().getUserLocation()
             }
 
             if (userLocation != null) {
@@ -403,7 +403,7 @@ fun LocationView(navController: NavController) {
                     scope.launch {
                         try {
                             // Update user location
-                            UserQueryable.updateUserLocation(latitude, longitude)
+                            FirebaseUserRepository.getInstance().updateUserLocation(latitude, longitude)
 
                             // Update shared preferences for radius
                             val sharedPrefs = context.getSharedPreferences("swipebyte_prefs", Context.MODE_PRIVATE)

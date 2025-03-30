@@ -12,7 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.example.swipebyte.ui.data.models.UserQueryable
+import com.example.swipebyte.ui.db.repository.FirebaseUserRepository
 import com.example.swipebyte.ui.navigation.AppNavigation
 import com.example.swipebyte.ui.theme.SwipeByteTheme
 import com.example.swipebyte.ui.viewmodel.AuthViewModel
@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
 
                     // Update Firestore with new location
                     lifecycleScope.launch {
-                        UserQueryable.updateUserLocation(location.latitude, location.longitude)
+                        FirebaseUserRepository.getInstance().updateUserLocation(location.latitude, location.longitude)
 
                         // Also update distances in RestaurantViewModel
                         restaurantViewModel.updateDistances(this@MainActivity)
@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
 
                     // Update Firestore with this location
                     lifecycleScope.launch {
-                        UserQueryable.updateUserLocation(location.latitude, location.longitude)
+                        FirebaseUserRepository.getInstance().updateUserLocation(location.latitude, location.longitude)
                     }
                 }
             }

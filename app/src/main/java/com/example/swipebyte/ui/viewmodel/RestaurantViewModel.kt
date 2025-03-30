@@ -8,9 +8,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.data.repository.RestaurantRepository
 import com.example.swipebyte.ui.data.models.Restaurant
-import com.example.swipebyte.ui.data.models.SwipeQueryable
-import com.example.swipebyte.ui.data.models.UserQueryable
 import com.example.swipebyte.ui.db.observer.*
+import com.example.swipebyte.ui.db.repository.FirebaseSwipeRepository
+import com.example.swipebyte.ui.db.repository.FirebaseUserRepository
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -82,7 +82,7 @@ class RestaurantViewModel : ViewModel(), RestaurantObserver, PreferencesObserver
                 Log.d("RestaurantViewModel", "Loading restaurants with radius: $searchRadius km")
 
                 // Get recently swiped restaurants (within the last 24 hours)
-                val recentSwipes = SwipeQueryable.getRecentSwipes()
+                val recentSwipes = FirebaseSwipeRepository.getInstance().getRecentSwipes()
                 Log.d("RestaurantViewModel", "Found ${recentSwipes.size} recently swiped restaurants")
 
                 // Log each swiped restaurant ID for debugging
@@ -158,7 +158,7 @@ class RestaurantViewModel : ViewModel(), RestaurantObserver, PreferencesObserver
         viewModelScope.launch {
             try {
                 // Get current location
-                val location = UserQueryable.getUserLocation()
+                val location = FirebaseUserRepository.getInstance().getUserLocation()
                 if (location != null) {
                     // Get current restaurants list from the observable
                     val currentList = restaurantObservable.getRestaurants()

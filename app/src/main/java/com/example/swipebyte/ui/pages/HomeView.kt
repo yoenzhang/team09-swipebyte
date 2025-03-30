@@ -2,7 +2,6 @@ package com.example.swipebyte.ui.pages
 
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
@@ -58,7 +57,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.swipebyte.R
-import com.example.swipebyte.ui.data.models.SwipeQueryable
 import com.example.swipebyte.ui.data.models.YelpHours
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.RestaurantViewModel
@@ -74,7 +72,7 @@ import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.isActive
 import java.util.Calendar
-import androidx.compose.material.ripple.rememberRipple
+import com.example.swipebyte.ui.db.repository.FirebaseSwipeRepository
 import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
 
 
@@ -259,7 +257,7 @@ fun EnhancedRestaurantCard(
                                     )
 
                                     onSwiped(direction)
-                                    SwipeQueryable.recordSwipe(restaurant.id, restaurant.name, direction == "Right")
+                                    FirebaseSwipeRepository.getInstance().recordSwipe(restaurant.id, restaurant.name, direction == "Right")
                                 }
                                 // Handle vertical swipe
                                 else if (abs(offsetY.value) > verticalSwipeThreshold && abs(offsetY.value) > abs(offsetX.value)) {
@@ -708,7 +706,7 @@ fun HomeView(navController: NavController) {
                 try {
                     Toast.makeText(context, "Undoing ${if (lastSwipeAction == true) "like" else "dislike"}...", Toast.LENGTH_SHORT).show()
 
-                    val success = SwipeQueryable.deleteSwipe(lastSwipedRestaurant!!.id)
+                    val success = FirebaseSwipeRepository.getInstance().deleteSwipe(lastSwipedRestaurant!!.id)
 
                     if (success) {
                         if (currentIndex >= restaurantList.size) {
@@ -946,7 +944,7 @@ fun HomeView(navController: NavController) {
                                         lastSwipeAction = isLiked
 
                                         try {
-                                            SwipeQueryable.recordSwipe(currentRestaurant.id, currentRestaurant.name, isLiked)
+                                            FirebaseSwipeRepository.getInstance().recordSwipe(currentRestaurant.id, currentRestaurant.name, isLiked)
 
                                             // Give Firebase a moment to catch up
                                             delay(50)
@@ -1016,7 +1014,7 @@ fun HomeView(navController: NavController) {
                                         isCardSwiping = true
 
                                         val curRestaurant = restaurantList[currentIndex]
-                                        SwipeQueryable.recordSwipe(curRestaurant.id, curRestaurant.name, true)
+                                        FirebaseSwipeRepository.getInstance().recordSwipe(curRestaurant.id, curRestaurant.name, true)
 
                                         delay(10)
 
@@ -1037,7 +1035,7 @@ fun HomeView(navController: NavController) {
                                         isCardSwiping = true
 
                                         val curRestaurant = restaurantList[currentIndex]
-                                        SwipeQueryable.recordSwipe(curRestaurant.id, curRestaurant.name, false)
+                                        FirebaseSwipeRepository.getInstance().recordSwipe(curRestaurant.id, curRestaurant.name, false)
 
                                         delay(10)
 
