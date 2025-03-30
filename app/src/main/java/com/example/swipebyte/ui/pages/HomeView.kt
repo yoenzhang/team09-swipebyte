@@ -58,7 +58,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.swipebyte.R
-import com.example.swipebyte.ui.data.models.SwipeQueryable
 import com.example.swipebyte.ui.data.models.YelpHours
 import com.example.swipebyte.ui.navigation.Screen
 import com.example.swipebyte.ui.viewmodel.RestaurantViewModel
@@ -75,9 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.isActive
 import java.util.Calendar
 import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.swipebyte.ui.db.repository.FirebaseSwipeRepository
 import com.example.swipebyte.ui.viewmodel.PreferencesViewModel
 
 
@@ -239,7 +236,7 @@ fun EnhancedRestaurantCard(
                         },
                         onDragEnd = {
                             coroutineScope.launch {
-                                // Handle horizontal swipe (faster animation)
+                                // Handle horizontal swipe
                                 if (abs(offsetX.value) > horizontalSwipeThreshold && abs(offsetX.value) > abs(offsetY.value)) {
                                     val direction = if (offsetX.value > 0) "Right" else "Left"
                                     swipeDirection = direction
@@ -253,16 +250,16 @@ fun EnhancedRestaurantCard(
                                     val targetValue = if (offsetX.value > 0) 1500f else -1500f
                                     offsetX.animateTo(
                                         targetValue = if (offsetX.value > 0) 500f else -500f,
-                                        animationSpec = tween(durationMillis = 50) // faster animation
+                                        animationSpec = tween(durationMillis = 100)
                                     )
-                                    delay(1)
+                                    delay(5)
                                     offsetX.animateTo(
                                         targetValue = targetValue,
-                                        animationSpec = tween(durationMillis = 100) // faster animation
+                                        animationSpec = tween(durationMillis = 200)
                                     )
 
                                     onSwiped(direction)
-                                    SwipeQueryable.recordSwipe(restaurant.id, restaurant.name, direction == "Right")
+                                    FirebaseSwipeRepository.getInstance().recordSwipe(restaurant.id, restaurant.name, direction == "Right")
                                 }
                                 // Handle vertical swipe
                                 else if (abs(offsetY.value) > verticalSwipeThreshold && abs(offsetY.value) > abs(offsetX.value)) {
@@ -289,22 +286,27 @@ fun EnhancedRestaurantCard(
 
                                         if (direction == "Up") {
                                             try {
+                                                // Don't reference variables from parent scope
                                                 onSwipeUp()
                                             } catch (e: Exception) {
+                                                // Reset card position
                                                 offsetY.animateTo(0f)
                                                 showMessageOverlay = false
                                                 currentSwipeMessage = ""
                                             }
                                         } else {
+                                            // Swipe down = undo last action or go to previous restaurant
                                             onSwipeDown()
                                         }
                                     } catch (e: Exception) {
+                                        // Reset the card position on error
                                         offsetX.animateTo(0f)
                                         offsetY.animateTo(0f)
                                         currentSwipeMessage = ""
                                         showMessageOverlay = false
                                     }
                                 } else {
+                                    // Return to center if no threshold met
                                     offsetX.animateTo(
                                         targetValue = 0f,
                                         animationSpec = spring(
@@ -327,6 +329,7 @@ fun EnhancedRestaurantCard(
                         onDrag = { change, dragAmount ->
                             change.consume()
                             coroutineScope.launch {
+                                // Prioritize horizontal or vertical based on drag direction
                                 if (abs(dragAmount.x) > abs(dragAmount.y)) {
                                     offsetX.snapTo(offsetX.value + dragAmount.x)
                                     if (abs(offsetY.value) > 0) {
@@ -339,6 +342,7 @@ fun EnhancedRestaurantCard(
                                     }
                                 }
 
+                                // Show messages when threshold crossed during drag
                                 if (abs(offsetX.value) > horizontalSwipeThreshold &&
                                     currentSwipeMessage.isEmpty() &&
                                     abs(offsetX.value) > abs(offsetY.value)) {
@@ -646,76 +650,163 @@ fun EnhancedRestaurantCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView(navController: NavController) {
+    // Grab the context for SharedPreferences
     val context = LocalContext.current
 
-    // Setup view models
+    // Setup our restaurant view model
     val restaurantViewModel = viewModel<RestaurantViewModel>()
     val preferencesViewModel = viewModel<PreferencesViewModel>()
 
-    // Observe restaurant data
+    // Let's watch for changes in our data
     val restaurants by restaurantViewModel.restaurants.observeAsState(emptyList())
     val isLoading by restaurantViewModel.isLoading.observeAsState(true)
     val error by restaurantViewModel.error.observeAsState(null)
 
-    // Local copy for swipe functionality
+    // Need a local copy for our swipe functionality
     val restaurantList = remember { mutableStateListOf<Restaurant>() }
+
+    // Track the last swiped restaurant for undo functionality
     var lastSwipedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
     var lastSwipeAction by remember { mutableStateOf<Boolean?>(null) }
+    // Keep track of which restaurant we're looking at
     var currentIndex by remember { mutableStateOf(0) }
+
+    // For showing the detailed view
     var showDetailScreen by remember { mutableStateOf(false) }
+
+    // Track if a card is being swiped (for animations)
     var isCardSwiping by remember { mutableStateOf(false) }
+
+    // Need this for animations
     val coroutineScope = rememberCoroutineScope()
 
-    // Load restaurants on launch
-    LaunchedEffect(Unit) {
-        restaurantViewModel.loadRestaurants(context)
+    // Go to next restaurant when swiping
+    val goToNextRestaurant = {
+        coroutineScope.launch {
+            if (currentIndex < restaurantList.size - 1) {
+                isCardSwiping = true
+                delay(5)
+                currentIndex++
+                delay(5)
+                isCardSwiping = false
+            } else {
+                Toast.makeText(context, "No more restaurants to show", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
-    // Sync view model data to local list
+    // Go back to previous restaurant OR undo last swipe
+    val goToPreviousRestaurant = {
+        coroutineScope.launch {
+            if (lastSwipedRestaurant != null && lastSwipeAction != null) {
+                isCardSwiping = true
+                delay(5)
+
+                try {
+                    Toast.makeText(context, "Undoing ${if (lastSwipeAction == true) "like" else "dislike"}...", Toast.LENGTH_SHORT).show()
+
+                    val success = FirebaseSwipeRepository.getInstance().deleteSwipe(lastSwipedRestaurant!!.id)
+
+                    if (success) {
+                        if (currentIndex >= restaurantList.size) {
+                            restaurantList.add(lastSwipedRestaurant!!)
+                        } else {
+                            restaurantList.add(currentIndex, lastSwipedRestaurant!!)
+                        }
+
+                        lastSwipedRestaurant = null
+                        lastSwipeAction = null
+
+                        restaurantViewModel.refreshRestaurants(context)
+                    } else {
+                        Toast.makeText(context, "Failed to undo action. Try again.", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Failed to undo action: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+
+                delay(5)
+                isCardSwiping = false
+            } else if (currentIndex > 0) {
+                isCardSwiping = true
+                delay(5)
+                currentIndex--
+                delay(5)
+                isCardSwiping = false
+            } else {
+                Toast.makeText(context, "You're at the first restaurant", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Track refresh trigger
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    // Load preferences and restaurants when we start or need to refresh
+    LaunchedEffect(refreshTrigger) {
+
+        // Load location radius from SharedPreferences into the PreferencesViewModel
+        preferencesViewModel.loadLocationRadius(context)
+
+        // Load and apply cuisine/price preferences
+        preferencesViewModel.loadPreferences {
+            // After preferences are loaded, load the restaurants
+            restaurantViewModel.loadRestaurants(context)
+        }
+    }
+
+    // Sync our local list with the ViewModel data
     LaunchedEffect(restaurants) {
         restaurantList.clear()
         restaurantList.addAll(restaurants)
     }
 
-    // Only refresh every 15 minutes if HomeView is active.
-    val currentBackStackEntry by navController.currentBackStackEntryAsState()
-    LaunchedEffect(currentBackStackEntry) {
-        if (currentBackStackEntry?.destination?.route == Screen.Home.route) {
-            while (isActive) {
-                delay(15 * 60 * 1000L)
-                restaurantViewModel.loadRestaurants(context)
-            }
+    // Check for new restaurants every 15 minutes
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay(15*60 * 1000)
+            restaurantViewModel.loadRestaurants(context)
         }
     }
 
-    // Refresh when coming back to HomeView
+    // Refresh when coming back to this screen
     DisposableEffect(navController) {
         var previousDestination = ""
+
         val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
             val currentRoute = destination.route ?: ""
-            if (currentRoute == Screen.Home.route && previousDestination.isNotEmpty() && previousDestination != Screen.Home.route) {
+
+            if (currentRoute == Screen.Home.route && previousDestination != "" && previousDestination != Screen.Home.route) {
+                refreshTrigger++
                 coroutineScope.launch {
                     delay(100)
                     restaurantViewModel.refreshRestaurants(context)
                 }
             }
+
             previousDestination = currentRoute
         }
+
         navController.addOnDestinationChangedListener(listener)
-        onDispose { navController.removeOnDestinationChangedListener(listener) }
+        onDispose {
+            navController.removeOnDestinationChangedListener(listener)
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // App Bar with gradient background
+        // Cool gradient app bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color(0xFFE53935), Color(0xFFEF5350))
+                        colors = listOf(
+                            Color(0xFFE53935),
+                            Color(0xFFEF5350)
+                        )
                     )
                 )
                 .padding(vertical = 12.dp, horizontal = 16.dp)
@@ -732,7 +823,9 @@ fun HomeView(navController: NavController) {
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
+
                 Spacer(modifier = Modifier.width(12.dp))
+
                 Text(
                     text = "SwipeByte",
                     style = MaterialTheme.typography.headlineMedium.copy(
@@ -745,7 +838,24 @@ fun HomeView(navController: NavController) {
                         )
                     )
                 )
+
                 Spacer(modifier = Modifier.weight(1f))
+
+                IconButton(
+                    onClick = {
+                        refreshTrigger++
+                        restaurantViewModel.refreshRestaurants(context)
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh Restaurants",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 IconButton(
                     onClick = { navController.navigate(Screen.Settings.route) },
                     modifier = Modifier.size(40.dp)
@@ -760,13 +870,14 @@ fun HomeView(navController: NavController) {
             }
         }
 
-        // Main content area – assume HomeView is used for swiping restaurants.
+        // Main content area
         Box(modifier = Modifier.weight(1f)) {
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else if (restaurantList.isEmpty()) {
+                // No restaurants? Show a nice empty state
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -784,21 +895,29 @@ fun HomeView(navController: NavController) {
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
+
                         Spacer(modifier = Modifier.height(16.dp))
+
                         Text(
                             text = "No new restaurants available",
                             style = MaterialTheme.typography.headlineSmall,
                             textAlign = TextAlign.Center
                         )
+
                         Spacer(modifier = Modifier.height(8.dp))
+
                         Text(
-                            text = "Restaurants you've swiped on will become available again after 24 hours.",
+                            text = "Check back later for new restaurants. Restaurants you've swiped on will become available again after 24 hours.",
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { restaurantViewModel.refreshRestaurants(context) }) {
+
+                        Button(
+                            onClick = { restaurantViewModel.refreshRestaurants(context) }
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Refresh"
@@ -815,85 +934,56 @@ fun HomeView(navController: NavController) {
                         EnhancedRestaurantCard(
                             restaurant = restaurantList[currentIndex],
                             onSwiped = { direction ->
+                                // Mark card as swiping
                                 isCardSwiping = true
+
                                 coroutineScope.launch {
                                     val isLiked = direction == "Right"
                                     try {
+
                                         val currentRestaurant = restaurantList[currentIndex]
                                         lastSwipedRestaurant = currentRestaurant.copy()
                                         lastSwipeAction = isLiked
+
                                         try {
-                                            SwipeQueryable.recordSwipe(currentRestaurant.id, currentRestaurant.name, isLiked)
-                                            delay(50) // Give Firebase a moment to catch up
-                                            restaurantViewModel.refreshRestaurants(context)
+                                            FirebaseSwipeRepository.getInstance().recordSwipe(currentRestaurant.id, currentRestaurant.name, isLiked)
+
+                                            // Give Firebase a moment to catch up
+                                            delay(50)
+
+                                        // Update everything
+                                        restaurantViewModel.refreshRestaurants(context)
+
                                             restaurantList.remove(currentRestaurant)
                                         } catch (e: Exception) {
                                             lastSwipedRestaurant = null
                                             lastSwipeAction = null
                                             Toast.makeText(context, "Failed to save your preference", Toast.LENGTH_SHORT).show()
                                         }
+
                                         isCardSwiping = false
+                                        refreshTrigger++
                                     } catch (e: Exception) {
                                         isCardSwiping = false
                                     }
                                 }
                             },
-                            onDetailsClick = { showDetailScreen = true },
+                            onDetailsClick = {
+                                showDetailScreen = true
+                            },
                             onSwipeUp = {
                                 if (currentIndex >= restaurantList.size - 1) {
                                     Toast.makeText(context, "No more restaurants to show", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    coroutineScope.launch {
-                                        isCardSwiping = true
-                                        delay(5)
-                                        currentIndex++
-                                        delay(5)
-                                        isCardSwiping = false
-                                    }
+                                    goToNextRestaurant()
                                 }
                             },
                             onSwipeDown = {
-                                coroutineScope.launch {
-                                    if (lastSwipedRestaurant != null && lastSwipeAction != null) {
-                                        isCardSwiping = true
-                                        delay(5)
-                                        try {
-                                            Toast.makeText(
-                                                context,
-                                                "Undoing ${if (lastSwipeAction == true) "like" else "dislike"}...",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            val success = SwipeQueryable.deleteSwipe(lastSwipedRestaurant!!.id)
-                                            if (success) {
-                                                if (currentIndex >= restaurantList.size) {
-                                                    restaurantList.add(lastSwipedRestaurant!!)
-                                                } else {
-                                                    restaurantList.add(currentIndex, lastSwipedRestaurant!!)
-                                                }
-                                                lastSwipedRestaurant = null
-                                                lastSwipeAction = null
-                                                restaurantViewModel.refreshRestaurants(context)
-                                            } else {
-                                                Toast.makeText(context, "Failed to undo action. Try again.", Toast.LENGTH_SHORT).show()
-                                            }
-                                        } catch (e: Exception) {
-                                            Toast.makeText(context, "Failed to undo action: ${e.message}", Toast.LENGTH_SHORT).show()
-                                        }
-                                        delay(5)
-                                        isCardSwiping = false
-                                    } else if (currentIndex > 0) {
-                                        isCardSwiping = true
-                                        delay(5)
-                                        currentIndex--
-                                        delay(5)
-                                        isCardSwiping = false
-                                    } else {
-                                        Toast.makeText(context, "You're at the first restaurant", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
+                                goToPreviousRestaurant()
                             }
                         )
                     } else {
+                        // All done!
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -924,14 +1014,19 @@ fun HomeView(navController: NavController) {
                                     coroutineScope.launch {
                                         showDetailScreen = false
                                         isCardSwiping = true
+
                                         val curRestaurant = restaurantList[currentIndex]
-                                        SwipeQueryable.recordSwipe(curRestaurant.id, curRestaurant.name, true)
+                                        FirebaseSwipeRepository.getInstance().recordSwipe(curRestaurant.id, curRestaurant.name, true)
+
                                         delay(10)
+
+                                        // Keep track of the liked restaurant's index to support going back later
                                         if (currentIndex < restaurantList.size - 1) {
                                             currentIndex++
                                         } else {
                                             Toast.makeText(context, "No more restaurants to show", Toast.LENGTH_SHORT).show()
                                         }
+
                                         delay(10)
                                         isCardSwiping = false
                                     }
@@ -940,41 +1035,29 @@ fun HomeView(navController: NavController) {
                                     coroutineScope.launch {
                                         showDetailScreen = false
                                         isCardSwiping = true
+
                                         val curRestaurant = restaurantList[currentIndex]
-                                        SwipeQueryable.recordSwipe(curRestaurant.id, curRestaurant.name, false)
+                                        FirebaseSwipeRepository.getInstance().recordSwipe(curRestaurant.id, curRestaurant.name, false)
+
                                         delay(10)
+
                                         if (currentIndex < restaurantList.size - 1) {
                                             currentIndex++
                                         } else {
                                             Toast.makeText(context, "No more restaurants to show", Toast.LENGTH_SHORT).show()
                                         }
+
                                         delay(10)
                                         isCardSwiping = false
                                     }
                                 },
                                 onPrevious = {
-                                    coroutineScope.launch {
-                                        if (currentIndex > 0) {
-                                            isCardSwiping = true
-                                            delay(5)
-                                            currentIndex--
-                                            delay(5)
-                                            isCardSwiping = false
-                                            showDetailScreen = true
-                                        }
-                                    }
+                                    goToPreviousRestaurant()
+                                    showDetailScreen = true
                                 },
                                 onNext = {
-                                    coroutineScope.launch {
-                                        if (currentIndex < restaurantList.size - 1) {
-                                            isCardSwiping = true
-                                            delay(5)
-                                            currentIndex++
-                                            delay(5)
-                                            isCardSwiping = false
-                                            showDetailScreen = true
-                                        }
-                                    }
+                                    goToNextRestaurant()
+                                    showDetailScreen = true
                                 }
                             )
                         }

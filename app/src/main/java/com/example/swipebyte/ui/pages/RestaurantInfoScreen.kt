@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
-import com.example.swipebyte.ui.db.models.FavouriteQueryable
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.data.models.YelpHours
 import java.util.Locale
@@ -39,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import android.util.Log
+import com.example.swipebyte.ui.db.repository.FavouriteQueryable
 import com.google.firebase.firestore.GeoPoint
 
 @Composable

@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.ui.data.models.Restaurant
-import com.example.swipebyte.ui.data.models.RestaurantQueryable.Companion.calculateDistance
+import com.example.swipebyte.ui.db.utils.LocationUtils.calculateDistance
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint

@@ -4,8 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.ui.data.models.Restaurant
-import com.example.swipebyte.ui.db.models.FavouriteQueryable
-import com.example.swipebyte.ui.data.models.SwipeQueryable
+import com.example.swipebyte.ui.db.repository.FavouriteQueryable
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
