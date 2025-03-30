@@ -4,6 +4,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.ui.data.models.Restaurant
+import com.example.swipebyte.ui.db.observer.PreferencesDataObserver
+import com.example.swipebyte.ui.db.observer.PreferencesObserver
+import com.example.swipebyte.ui.db.observer.UserPreferences
 import com.example.swipebyte.ui.db.utils.LocationUtils.calculateDistance
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -16,8 +19,11 @@ import kotlinx.coroutines.tasks.await
 
 data class RestaurantVote(val restaurantId: String, val voteCount: Int)
 
-class CommunityFavouritesViewModel : ViewModel() {
+class CommunityFavouritesViewModel : ViewModel(), PreferencesObserver {
     private val db = FirebaseFirestore.getInstance()
+    private val preferencesObservable = PreferencesDataObserver.getObservable()
+
+    private var currentPreferences = UserPreferences()
 
     private val _favorites = MutableStateFlow<List<Restaurant>>(emptyList())
     val favorites: StateFlow<List<Restaurant>> = _favorites
@@ -27,7 +33,6 @@ class CommunityFavouritesViewModel : ViewModel() {
 
     // New state to hold the current time filter; default "All Time"
     private val _timeFilter = MutableStateFlow("All Time")
-    val timeFilter: StateFlow<String> = _timeFilter
 
     fun setTimeFilter(newFilter: String) {
         _timeFilter.value = newFilter
@@ -41,6 +46,31 @@ class CommunityFavouritesViewModel : ViewModel() {
     private val restaurantCache = mutableMapOf<String, Restaurant>() // Cache to reduce Firestore reads
 
     private var latestSwipeDocuments: List<DocumentSnapshot> = emptyList()
+
+    init {
+        // Register as an observer for preferences
+        preferencesObservable.registerObserver(this)
+
+        // Initialize current preferences
+        currentPreferences = preferencesObservable.getPreferences()
+    }
+
+    // PreferencesObserver implementation
+    override fun onPreferencesUpdate(data: UserPreferences) {
+        Log.d("CommunityFavouritesViewModel", "Preferences updated: cuisines=${data.cuisinePreferences.size}, " +
+                "price=${data.pricePreferences.size}, radius=${data.locationRadius}")
+
+        // Check if location radius changed
+        val radiusChanged = currentPreferences.locationRadius != data.locationRadius
+
+        // Store the new preferences
+        currentPreferences = data
+
+        // Reload restaurants if radius changed
+        if (radiusChanged) {
+            recomputeFavorites()
+        }
+    }
 
     fun firebaseSwipeListener(userLocation: GeoPoint?) {
         this.userLocation = userLocation
@@ -98,17 +128,23 @@ class CommunityFavouritesViewModel : ViewModel() {
             val updatedRestaurants = voteList.mapNotNull { vote ->
 
                 val cachedRestaurant = restaurantCache[vote.restaurantId]?.copy(voteCount = vote.voteCount)
-                // Use cached restaurant, just update the vote count
-                cachedRestaurant?.copy(
-                    distance = calculateDistance(
+                // Calculate distance
+                val distance = cachedRestaurant?.let {
+                    calculateDistance(
                         userLocation?.latitude ?: 0.0,
                         userLocation?.longitude ?: 0.0,
-                        cachedRestaurant.location.latitude,
-                        cachedRestaurant.location.longitude
+                        it.location.latitude,
+                        it.location.longitude
                     )
-                )
-                    ?: // Fetch from Firestore if not in cache
-                    fetchUpdatedFavesFromFireStore(vote.restaurantId, vote.voteCount)
+                } ?: fetchUpdatedFavesFromFireStore(vote.restaurantId, vote.voteCount)?.distance
+
+                // Only include restaurants within the radius
+                if (distance != null && distance <= currentPreferences.locationRadius) {
+                    cachedRestaurant?.copy(distance = distance)
+                        ?: fetchUpdatedFavesFromFireStore(vote.restaurantId, vote.voteCount)?.copy(distance = distance)
+                } else {
+                    null // Exclude restaurants outside the radius
+                }
             }
 
             _favorites.value = updatedRestaurants
@@ -140,6 +176,7 @@ class CommunityFavouritesViewModel : ViewModel() {
     }
 
     override fun onCleared() {
+        preferencesObservable.unregisterObserver(this)
         super.onCleared()
         listenerRegistration?.remove() // Remove listener to avoid memory leaks
     }

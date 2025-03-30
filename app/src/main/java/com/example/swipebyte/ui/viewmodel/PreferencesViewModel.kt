@@ -27,6 +27,7 @@ class PreferencesViewModel : ViewModel() {
     fun getSelectedPriceRange(): List<String> {
         return cachedPriceRange
     }
+
     // Initialize by loading preferences from Firestore
     fun loadPreferences(callback: () -> Unit) {
         val userId = auth.currentUser?.uid ?: run {

@@ -100,7 +100,7 @@ fun MyLikesView(
         try {
             val user = repository.getUserPreferences()
             userLocation = user?.location
-            myLikesViewModel.firebaseSwipeListenerForLikes(userId)
+            myLikesViewModel.firebaseSwipeListenerForLikes(userId, userLocation)
         } catch (e: Exception) {
             Log.e("MyLikesView", "Error fetching data: ${e.message}")
         }
@@ -142,7 +142,7 @@ fun MyLikesView(
         favouritesMap
     ) {
         likedRestaurants.filter { restaurant ->
-            val restId = restaurant.id ?: return@filter false
+            val restId = restaurant.id
             val ts = timestampsMap[restId] ?: 0L
             val timeCondition = if (timeFilter == "Last 24 hours") {
                 ts != 0L && (currentTime - ts) < oneDayMillis
@@ -282,7 +282,7 @@ fun MyLikesView(
                         )
                         Row {
                             IconButton(onClick = {
-                                myLikesViewModel.firebaseSwipeListenerForLikes(userId)
+                                myLikesViewModel.firebaseSwipeListenerForLikes(userId, userLocation)
                                 val friendIds = friendsList.map { it.first }
                                 myLikesViewModel.fetchFriendLikes(friendIds)
                             }) {

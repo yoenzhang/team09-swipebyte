@@ -1,5 +1,6 @@
 package com.example.swipebyte.ui.viewmodel
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.LiveData
@@ -29,6 +30,7 @@ class RestaurantViewModel : ViewModel(), RestaurantObserver, PreferencesObserver
     val error: LiveData<String?> = _error
 
     // Store last known context for refreshing when preferences change
+    @SuppressLint("StaticFieldLeak")
     private var lastContext: Context? = null
     private var currentPreferences = UserPreferences()
 

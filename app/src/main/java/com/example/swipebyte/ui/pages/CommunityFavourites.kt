@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +37,7 @@ import com.example.swipebyte.ui.viewmodel.CommunityFavouritesViewModel
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.swipebyte.data.repository.RestaurantRepository
+import com.example.swipebyte.ui.navigation.Screen
 import com.google.firebase.firestore.GeoPoint
 import java.util.Locale
 
@@ -43,7 +45,9 @@ import java.util.Locale
 data class FilterMemento(
     val timeFilter: String,
     val selectedCuisines: Set<String>,
-    val selectedCosts: Set<String>
+    val selectedCosts: Set<String>,
+    val yelpRatingFilter: Float,
+    val customRatingFilter: Float
 )
 
 @Composable
@@ -133,6 +137,13 @@ fun CommunityFavouritesView(
                     )
                 )
                 Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = Color.White
+                    )
+                }
             }
         }
 
@@ -189,6 +200,7 @@ fun CommunityFavouritesView(
 
     if (showFilterDialog) {
         CommunityFavouritesFilterDialog(
+            viewModel = viewModel,
             timeFilter = timeFilter,
             onTimeFilterChange = { timeFilter = it },
             selectedCuisines = selectedCuisines,
@@ -223,6 +235,7 @@ fun CommunityFavouritesView(
 
 @Composable
 fun CommunityFavouritesFilterDialog(
+    viewModel: CommunityFavouritesViewModel,
     timeFilter: String,
     onTimeFilterChange: (String) -> Unit,
     selectedCuisines: Set<String>,
@@ -244,14 +257,7 @@ fun CommunityFavouritesFilterDialog(
     var localCustomRatingFilter by remember { mutableStateOf(customRatingFilter) }
 
     // Create history that includes all filter parameters.
-    data class FilterState(
-        val timeFilter: String,
-        val selectedCuisines: Set<String>,
-        val selectedCosts: Set<String>,
-        val yelpRatingFilter: Float,
-        val customRatingFilter: Float
-    )
-    var history by remember { mutableStateOf(listOf(FilterState(localTimeFilter, localSelectedCuisines, localSelectedCosts, localYelpRatingFilter, localCustomRatingFilter))) }
+    var history by remember { mutableStateOf(listOf(FilterMemento(localTimeFilter, localSelectedCuisines, localSelectedCosts, localYelpRatingFilter, localCustomRatingFilter))) }
     var historyIndex by remember { mutableIntStateOf(0) }
 
     fun undo() {
@@ -283,7 +289,7 @@ fun CommunityFavouritesFilterDialog(
         newYelpRatingFilter: Float = localYelpRatingFilter,
         newCustomRatingFilter: Float = localCustomRatingFilter
     ) {
-        val newState = FilterState(newTimeFilter, newSelectedCuisines, newSelectedCosts, newYelpRatingFilter, newCustomRatingFilter)
+        val newState = FilterMemento(newTimeFilter, newSelectedCuisines, newSelectedCosts, newYelpRatingFilter, newCustomRatingFilter)
         if (historyIndex < history.size - 1) {
             history = history.subList(0, historyIndex + 1)
         }
@@ -404,7 +410,7 @@ fun CommunityFavouritesFilterDialog(
                             valueRange = 0f..5f,
                             steps = 4
                         )
-                        Text(String.format("%.1f", localYelpRatingFilter), style = MaterialTheme.typography.bodySmall)
+                        Text(String.format(Locale.US, "%.1f", localYelpRatingFilter), style = MaterialTheme.typography.bodySmall)
                         Spacer(modifier = Modifier.height(16.dp))
                         // Minimum Vote Count
                         Text("Minimum Vote Count", style = MaterialTheme.typography.titleMedium)
@@ -453,7 +459,15 @@ fun CommunityFavouritesFilterDialog(
                         Text("Cancel")
                     }
                     Button(
-                        onClick = onApply,
+                        onClick = {
+                            onTimeFilterChange(localTimeFilter)
+                            onCuisinesChange(localSelectedCuisines)
+                            onCostsChange(localSelectedCosts)
+                            onYelpRatingFilterChange(localYelpRatingFilter)
+                            onCustomRatingFilterChange(localCustomRatingFilter)
+                            viewModel.setTimeFilter(localTimeFilter)
+                            onApply()
+                        },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Apply")
