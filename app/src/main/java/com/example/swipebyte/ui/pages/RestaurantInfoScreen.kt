@@ -13,12 +13,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -32,14 +32,11 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.data.models.YelpHours
 import java.util.Locale
-import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.launch
 import java.util.Calendar
-import android.util.Log
 import com.example.swipebyte.ui.db.repository.FavouriteQueryable
-import com.google.firebase.firestore.GeoPoint
 
 @Composable
 fun RestaurantInfoScreen(
@@ -59,7 +56,6 @@ fun RestaurantInfoScreen(
         isLoading = true
         try {
             isInFavorites = FavouriteQueryable.isInFavourites(restaurant.id)
-        } catch (e: Exception) {
         } finally {
             isLoading = false
         }
@@ -99,7 +95,7 @@ fun RestaurantInfoScreen(
                         .align(Alignment.TopStart)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = Color.White
                     )
@@ -216,7 +212,7 @@ fun RestaurantInfoScreen(
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Text(
-                            text = String.format("%.1f", restaurant.yelpRating) + " ⭐",
+                            text = String.format(Locale.US, "%.1f", restaurant.yelpRating) + " ⭐",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -225,9 +221,13 @@ fun RestaurantInfoScreen(
                             text = restaurant.priceRange ?: "$$",
                             style = MaterialTheme.typography.bodyLarge
                         )
+                        Text(
+                            text = String.format(Locale.US, "%.2f", restaurant.distance) + "km away",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
                 }
-                Divider()
+                HorizontalDivider()
                 // About Section
                 Text(
                     text = "About",
@@ -239,7 +239,7 @@ fun RestaurantInfoScreen(
                     text = "Taste buds are in heaven",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 // Additional Details Section
                 Text(
                     text = "Details",
@@ -249,21 +249,21 @@ fun RestaurantInfoScreen(
                 RestaurantDetailRow(
                     icon = Icons.Default.LocationOn,
                     title = "Address",
-                    value = restaurant.address ?: "123 Main Street",
+                    value = restaurant.address,
                     isClickable = true
                 )
                 CustomRestaurantHoursSection(restaurant.hours)
                 RestaurantDetailRow(
                     icon = Icons.Default.Phone,
                     title = "Phone",
-                    value = restaurant.phone ?: "(123) 456-7890"
+                    value = restaurant.phone
                 )
                 RestaurantDetailRow(
                     icon = Icons.Default.DateRange,
                     title = "Website",
-                    value = restaurant.url ?: "www.restaurant.com"
+                    value = restaurant.url
                 )
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
@@ -355,7 +355,7 @@ fun CustomRestaurantHoursSection(
     // Current time in 24-hour format as a string (e.g., "1430" for 2:30 PM)
     val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
     val currentMinute = calendar.get(Calendar.MINUTE)
-    val currentTime = String.format("%02d%02d", currentHour, currentMinute)
+    val currentTime = String.format(Locale.US, "%02d%02d", currentHour, currentMinute)
 
     // Calculate if open now
     val isOpenNow = regularHours?.open?.any { openHours ->

@@ -1,19 +1,19 @@
 package com.example.swipebyte.ui.pages
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.swipebyte.ui.navigation.Screen
@@ -49,7 +49,7 @@ fun SettingsView(navController: NavController, authViewModel: AuthViewModel) {
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -65,7 +65,7 @@ fun SettingsView(navController: NavController, authViewModel: AuthViewModel) {
                         }
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ExitToApp,
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = "Sign Out",
                             tint = MaterialTheme.colorScheme.error
                         )
@@ -222,7 +222,7 @@ fun PreferencesSettingsCard(navController: NavController) {
             }
 
             Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Go to Preferences Settings",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -266,7 +266,7 @@ fun LocationSettingsCard(navController: NavController) {
             }
 
             Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Go to Location Settings",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )

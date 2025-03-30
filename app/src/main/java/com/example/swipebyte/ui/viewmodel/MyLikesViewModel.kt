@@ -10,6 +10,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import androidx.lifecycle.viewModelScope
+import com.example.swipebyte.ui.db.utils.LocationUtils.calculateDistance
+import com.google.firebase.firestore.GeoPoint
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -33,14 +35,16 @@ class MyLikesViewModel : ViewModel() {
     val friendLikesMap: StateFlow<Map<String, List<String>>> = _friendLikesMap
 
     // Listener registration for real-time updates
+    private var userLocation: GeoPoint? = null
     private var listenerRegistration: ListenerRegistration? = null
 
     /**
      * Sets up a real-time snapshot listener to load the user's liked restaurants.
      * This mimics the loading mechanics in CommunityFavouritesView.
      */
-    fun firebaseSwipeListenerForLikes(userId: String) {
+    fun firebaseSwipeListenerForLikes(userId: String, userLocation: GeoPoint?) {
         _isLoading.value = true
+        this.userLocation = userLocation
         // Remove any previous listener to avoid duplicates
         listenerRegistration?.remove()
         listenerRegistration = db.collection("userSwipes")
@@ -70,6 +74,13 @@ class MyLikesViewModel : ViewModel() {
                                         val restaurant = restDoc.toObject(Restaurant::class.java)
                                         restaurant?.let {
                                             it.id = restaurantId
+                                            val distance = calculateDistance(
+                                                userLocation?.latitude ?: 0.0,
+                                                userLocation?.longitude ?: 0.0,
+                                                it.location.latitude,
+                                                it.location.longitude
+                                            )
+                                            it.distance = distance
                                             likedRestList.add(it)
                                         }
                                     }
@@ -79,7 +90,7 @@ class MyLikesViewModel : ViewModel() {
                             }
                             _likedRestaurants.value = likedRestList
                             _timestampsMap.value = timestamps
-                            checkFavouritesStatus(likedRestList.map { it.id ?: "" })
+                            checkFavouritesStatus(likedRestList.map { it.id })
                         } catch (e: Exception) {
                             Log.e("MyLikesViewModel", "Error processing swipes: ${e.message}")
                         } finally {
@@ -111,7 +122,7 @@ class MyLikesViewModel : ViewModel() {
 
     // Public method to refresh favourites status without reloading all restaurants
     fun refreshFavouritesStatus() {
-        val currentRestaurantIds = _likedRestaurants.value.mapNotNull { it.id }
+        val currentRestaurantIds = _likedRestaurants.value.map { it.id }
         checkFavouritesStatus(currentRestaurantIds)
     }
 
