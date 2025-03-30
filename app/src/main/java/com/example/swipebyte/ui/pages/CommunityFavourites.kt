@@ -100,7 +100,7 @@ fun CommunityFavouritesView(
             val costCondition = if (selectedCosts.isEmpty()) true
             else restaurant.priceRange?.trim() in selectedCosts
             val yelpRatingCondition = if (yelpRatingFilter > 0f) restaurant.yelpRating >= yelpRatingFilter else true
-            val voteCountCondition = if (customRatingFilter > 0f) restaurant.voteCount >= customRatingFilter else true
+            val voteCountCondition = if (customRatingFilter > 0f) restaurant.voteCount >= customRatingFilter.toInt() else true
             cuisineCondition && costCondition && yelpRatingCondition && voteCountCondition
         }
     }
