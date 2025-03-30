@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,21 +59,23 @@ data class FriendFilterMemento(
 fun MyLikesView(
     navController: NavController,
     userId: String,
-    myLikesViewModel: MyLikesViewModel = viewModel(),
-    friendViewModel: FriendViewModel = viewModel()
+    myLikesViewModel: MyLikesViewModel = viewModel(key = "MyLikesViewModel"),
+    friendViewModel: FriendViewModel = viewModel() // (add key here as needed)
 ) {
+    // Use Flow state for loading and data
     val isLoading by myLikesViewModel.isLoading.collectAsState()
-
     val likedRestaurants by myLikesViewModel.likedRestaurants.collectAsState(emptyList())
     val timestampsMap by myLikesViewModel.timestampsMap.collectAsState(emptyMap())
     val favouritesMap by myLikesViewModel.favouritesMap.collectAsState(emptySet())
 
-    var timeFilter by remember { mutableStateOf("Last 24 hours") }
-    var selectedCuisines by remember { mutableStateOf(setOf<String>()) }
-    var selectedCosts by remember { mutableStateOf(setOf<String>()) }
-    var selectedFriends by remember { mutableStateOf(setOf<String>()) }
-    var showOnlyFavourites by remember { mutableStateOf(false) }
+    // Use rememberSaveable so that these filter preferences persist across navigation
+    var timeFilter by rememberSaveable { mutableStateOf("Last 24 hours") }
+    var selectedCuisines by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var selectedCosts by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var selectedFriends by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var showOnlyFavourites by rememberSaveable { mutableStateOf(false) }
 
+    // Save originals to restore if dialog is cancelled
     var originalTimeFilter = timeFilter
     var originalSelectedCuisines = selectedCuisines
     var originalSelectedCosts = selectedCosts
@@ -92,12 +95,12 @@ fun MyLikesView(
     val snackbarHostState = remember { SnackbarHostState() }
     val operationResult by friendViewModel.operationResult.observeAsState()
 
-    // Data fetching effects
-    LaunchedEffect(Unit) {
+    // Fetch data and start the real‑time snapshot listener for likes
+    LaunchedEffect(userId) {
         try {
             val user = repository.getUserPreferences()
             userLocation = user?.location
-            myLikesViewModel.fetchUserSwipedRestaurants(userId)
+            myLikesViewModel.firebaseSwipeListenerForLikes(userId)
         } catch (e: Exception) {
             Log.e("MyLikesView", "Error fetching data: ${e.message}")
         }
@@ -125,7 +128,7 @@ fun MyLikesView(
         }
     }
 
-    // FILTER + SORT logic
+    // FILTER + SORT logic remains the same
     val oneDayMillis = 24 * 60 * 60 * 1000L
     val currentTime = System.currentTimeMillis()
     val filteredRestaurants = remember(
@@ -152,15 +155,8 @@ fun MyLikesView(
                 val favourites = myLikesViewModel.favouritesMap.value
                 restId in favourites
             } else true
-            
+
             timeCondition && cuisineCondition && costCondition && friendCondition && favouritesCondition
-        }
-    }
-    
-    // Effect to refresh favorites when user adds new favorites in the current view
-    LaunchedEffect(showOnlyFavourites) {
-        if (showOnlyFavourites) {
-            myLikesViewModel.refreshFavouritesStatus()
         }
     }
 
@@ -181,21 +177,19 @@ fun MyLikesView(
         }
     }
 
-    // Effect to refresh favorites when showing filter dialog
     LaunchedEffect(showFilterDialog) {
         if (showFilterDialog) {
             myLikesViewModel.refreshFavouritesStatus()
         }
     }
 
-    // Main UI
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Top bar
+            // Top app bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -241,8 +235,7 @@ fun MyLikesView(
                     }
                 }
             }
-
-            // Toggle: My Likes / Friend Requests
+            // Toggle buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -273,11 +266,9 @@ fun MyLikesView(
                     )
                 ) { Text("Friend Requests") }
             }
-
-            // Content based on selected view
+            // Main content based on selected view
             when (currentView) {
                 "likes" -> {
-                    // Header row with title and filter button
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -291,8 +282,7 @@ fun MyLikesView(
                         )
                         Row {
                             IconButton(onClick = {
-                                // Refresh/reload logic
-                                myLikesViewModel.fetchUserSwipedRestaurants(userId)
+                                myLikesViewModel.firebaseSwipeListenerForLikes(userId)
                                 val friendIds = friendsList.map { it.first }
                                 myLikesViewModel.fetchFriendLikes(friendIds)
                             }) {
@@ -303,13 +293,11 @@ fun MyLikesView(
                                 )
                             }
                             IconButton(onClick = {
-                                // Save original state before opening dialog
                                 originalTimeFilter = timeFilter
                                 originalSelectedCuisines = selectedCuisines
                                 originalSelectedCosts = selectedCosts
                                 originalSelectedFriends = selectedFriends
                                 originalShowOnlyFavourites = showOnlyFavourites
-                                
                                 myLikesViewModel.refreshFavouritesStatus()
                                 showFilterDialog = true
                             }) {
@@ -325,13 +313,13 @@ fun MyLikesView(
                         MyLikesFilterDialog(
                             timeFilter = timeFilter,
                             onTimeFilterChange = { timeFilter = it },
-                            selectedCuisines = selectedCuisines,
-                            onCuisinesChange = { selectedCuisines = it },
-                            selectedCosts = selectedCosts,
-                            onCostsChange = { selectedCosts = it },
+                            selectedCuisines = selectedCuisines.toSet(),
+                            onCuisinesChange = { selectedCuisines = it.toList() },
+                            selectedCosts = selectedCosts.toSet(),
+                            onCostsChange = { selectedCosts = it.toList() },
                             allFriendNames = friendsList.map { it.second },
-                            selectedFriends = selectedFriends,
-                            onFriendsChange = { selectedFriends = it },
+                            selectedFriends = selectedFriends.toSet(),
+                            onFriendsChange = { selectedFriends = it.toList() },
                             showOnlyFavourites = showOnlyFavourites,
                             onShowOnlyFavouritesChange = { showOnlyFavourites = it },
                             onApply = { showFilterDialog = false },
@@ -343,7 +331,6 @@ fun MyLikesView(
                                 showOnlyFavourites = originalShowOnlyFavourites
                                 showFilterDialog = false
                             },
-                            
                         )
                     }
                     Column(
@@ -352,7 +339,6 @@ fun MyLikesView(
                             .padding(16.dp),
                         horizontalAlignment = Alignment.Start
                     ) {
-                        // Use the view model's isLoading state: show the CircularProgressIndicator if loading
                         if (isLoading) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -361,7 +347,6 @@ fun MyLikesView(
                                 CircularProgressIndicator()
                             }
                         } else {
-                            // If not loading, check if there are any liked restaurants at all (raw list)
                             if (likedRestaurants.isEmpty()) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
@@ -370,7 +355,6 @@ fun MyLikesView(
                                     Text("You have not liked any restaurants")
                                 }
                             } else {
-                                // Otherwise, show the filtered (and sorted) list
                                 LazyColumn(
                                     modifier = Modifier.fillMaxSize(),
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -395,7 +379,6 @@ fun MyLikesView(
                     }
                 }
                 "friends" -> {
-                    // Friend Requests view
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -487,8 +470,6 @@ fun MyLikesView(
             }
         }
     }
-
-    // Restaurant details dialog
     if (selectedRestaurant != null) {
         Dialog(
             onDismissRequest = { selectedRestaurant = null },
@@ -518,14 +499,13 @@ fun MyLikesFilterDialog(
     onApply: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Local state for dialog - changes here don't affect the parent until Apply is clicked
     var localTimeFilter by remember(timeFilter) { mutableStateOf(timeFilter) }
     var localSelectedCuisines by remember(selectedCuisines) { mutableStateOf(selectedCuisines) }
     var localSelectedCosts by remember(selectedCosts) { mutableStateOf(selectedCosts) }
     var localSelectedFriends by remember(selectedFriends) { mutableStateOf(selectedFriends) }
     var localShowOnlyFavourites by remember(showOnlyFavourites) { mutableStateOf(showOnlyFavourites) }
 
-    // Memento stack for undo/redo
+    // History for undo/redo
     var history by remember { mutableStateOf(listOf(FriendFilterMemento(localTimeFilter, localSelectedCuisines, localSelectedCosts, localSelectedFriends, localShowOnlyFavourites))) }
     var historyIndex by remember { mutableIntStateOf(0) }
 
@@ -553,18 +533,18 @@ fun MyLikesFilterDialog(
         }
     }
 
-    fun saveState(newTimeFilter: String = localTimeFilter, 
-                  newSelectedCuisines: Set<String> = localSelectedCuisines,
-                  newSelectedCosts: Set<String> = localSelectedCosts, 
-                  newSelectedFriends: Set<String> = localSelectedFriends,
-                  newShowOnlyFavourites: Boolean = localShowOnlyFavourites) {
+    fun saveState(
+        newTimeFilter: String = localTimeFilter,
+        newSelectedCuisines: Set<String> = localSelectedCuisines,
+        newSelectedCosts: Set<String> = localSelectedCosts,
+        newSelectedFriends: Set<String> = localSelectedFriends,
+        newShowOnlyFavourites: Boolean = localShowOnlyFavourites
+    ) {
         val newState = FriendFilterMemento(newTimeFilter, newSelectedCuisines, newSelectedCosts, newSelectedFriends, newShowOnlyFavourites)
-
-        // Trim redo history if new change happens after undo
+        // Trim any redo history if new change happens after undo
         if (historyIndex < history.size - 1) {
             history = history.subList(0, historyIndex + 1)
         }
-
         history = history + newState
         historyIndex = history.size - 1
     }
@@ -573,137 +553,80 @@ fun MyLikesFilterDialog(
         onDismissRequest = onDismiss,
         title = { Text("Filter My Likes") },
         text = {
-            Box(
-                modifier = Modifier
-                    .heightIn(max = 600.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Column {
-                    // Favourite filter
-                    Text("Favourites Filter", style = MaterialTheme.typography.titleMedium)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                localShowOnlyFavourites = !localShowOnlyFavourites
-                                saveState(newShowOnlyFavourites = localShowOnlyFavourites)
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = localShowOnlyFavourites,
-                            onCheckedChange = { checked ->
-                                localShowOnlyFavourites = checked
-                                saveState(newShowOnlyFavourites = checked)
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Show only favourited restaurants")
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Existing time filter
-                    Text("Time Filter", style = MaterialTheme.typography.titleMedium)
-                    val timeOptions = listOf("Last 24 hours", "All Time")
-                    timeOptions.forEach { option ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { 
-                                    localTimeFilter = option
-                                    saveState(newTimeFilter = option)
-                                }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = (localTimeFilter == option),
-                                onClick = { 
-                                    localTimeFilter = option
-                                    saveState(newTimeFilter = option)
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(option)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Cuisine Preferences", style = MaterialTheme.typography.titleMedium)
-                    val allCuisines = listOf("Italian", "Chinese", "Mexican", "Indian", "American", "Japanese", "Thai")
-                    allCuisines.forEach { cuisine ->
-                        val isSelected = cuisine in localSelectedCuisines
+            // The overall content is a fixed Column:
+            Column(modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp)) {
+                // Scrollable area for filter options
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(8.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Favourites Filter
+                        Text("Favourites Filter", style = MaterialTheme.typography.titleMedium)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val newSet = localSelectedCuisines.toMutableSet()
-                                    if (isSelected) newSet.remove(cuisine) else newSet.add(cuisine)
-                                    localSelectedCuisines = newSet
-                                    saveState(newSelectedCuisines = newSet)
+                                    localShowOnlyFavourites = !localShowOnlyFavourites
+                                    saveState(newShowOnlyFavourites = localShowOnlyFavourites)
                                 }
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
-                                checked = isSelected,
+                                checked = localShowOnlyFavourites,
                                 onCheckedChange = { checked ->
-                                    val newSet = localSelectedCuisines.toMutableSet()
-                                    if (checked) newSet.add(cuisine) else newSet.remove(cuisine)
-                                    localSelectedCuisines = newSet
-                                    saveState(newSelectedCuisines = newSet)
+                                    localShowOnlyFavourites = checked
+                                    saveState(newShowOnlyFavourites = checked)
                                 }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(cuisine)
+                            Text("Show only favourited restaurants")
                         }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Cost Preferences", style = MaterialTheme.typography.titleMedium)
-                    val costOptions = listOf("$", "$$", "$$$", "$$$$")
-                    costOptions.forEach { cost ->
-                        val isSelected = cost in localSelectedCosts
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val newSet = localSelectedCosts.toMutableSet()
-                                    if (isSelected) newSet.remove(cost) else newSet.add(cost)
-                                    localSelectedCosts = newSet
-                                    saveState(newSelectedCosts = newSet)
-                                }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isSelected,
-                                onCheckedChange = { checked ->
-                                    val newSet = localSelectedCosts.toMutableSet()
-                                    if (checked) newSet.add(cost) else newSet.remove(cost)
-                                    localSelectedCosts = newSet
-                                    saveState(newSelectedCosts = newSet)
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(cost)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Friend Filter", style = MaterialTheme.typography.titleMedium)
-                    if (allFriendNames.isEmpty()) {
-                        Text("No friends found.")
-                    } else {
-                        allFriendNames.forEach { friendName ->
-                            val isSelected = friendName in localSelectedFriends
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Time Filter
+                        Text("Time Filter", style = MaterialTheme.typography.titleMedium)
+                        val timeOptions = listOf("Last 24 hours", "All Time")
+                        timeOptions.forEach { option ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        val newSet = localSelectedFriends.toMutableSet()
-                                        if (isSelected) newSet.remove(friendName) else newSet.add(friendName)
-                                        localSelectedFriends = newSet
-                                        saveState(newSelectedFriends = newSet)
+                                        localTimeFilter = option
+                                        saveState(newTimeFilter = option)
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = (localTimeFilter == option),
+                                    onClick = {
+                                        localTimeFilter = option
+                                        saveState(newTimeFilter = option)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(option)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Cuisine Preferences
+                        Text("Cuisine Preferences", style = MaterialTheme.typography.titleMedium)
+                        val allCuisines = listOf("Italian", "Chinese", "Mexican", "Indian", "American", "Japanese", "Thai")
+                        allCuisines.forEach { cuisine ->
+                            val isSelected = cuisine in localSelectedCuisines
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val newSet = localSelectedCuisines.toMutableSet()
+                                        if (isSelected) newSet.remove(cuisine) else newSet.add(cuisine)
+                                        localSelectedCuisines = newSet
+                                        saveState(newSelectedCuisines = newSet)
                                     }
                                     .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -711,72 +634,135 @@ fun MyLikesFilterDialog(
                                 Checkbox(
                                     checked = isSelected,
                                     onCheckedChange = { checked ->
-                                        val newSet = localSelectedFriends.toMutableSet()
-                                        if (checked) newSet.add(friendName) else newSet.remove(friendName)
-                                        localSelectedFriends = newSet
-                                        saveState(newSelectedFriends = newSet)
+                                        val newSet = localSelectedCuisines.toMutableSet()
+                                        if (checked) newSet.add(cuisine) else newSet.remove(cuisine)
+                                        localSelectedCuisines = newSet
+                                        saveState(newSelectedCuisines = newSet)
                                     }
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(friendName)
+                                Text(cuisine)
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = {undo()},
-                                modifier = Modifier.weight(1f),
-                                enabled = historyIndex > 0
+                        // Cost Preferences
+                        Text("Cost Preferences", style = MaterialTheme.typography.titleMedium)
+                        val costOptions = listOf("$", "$$", "$$$", "$$$$")
+                        costOptions.forEach { cost ->
+                            val isSelected = cost in localSelectedCosts
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val newSet = localSelectedCosts.toMutableSet()
+                                        if (isSelected) newSet.remove(cost) else newSet.add(cost)
+                                        localSelectedCosts = newSet
+                                        saveState(newSelectedCosts = newSet)
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Undo")
-                            }
-                            Button(
-                                onClick = {redo()},
-                                modifier = Modifier.weight(1f),
-                                enabled = historyIndex < history.size - 1
-                            ) {
-                                Text("Redo")
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { checked ->
+                                        val newSet = localSelectedCosts.toMutableSet()
+                                        if (checked) newSet.add(cost) else newSet.remove(cost)
+                                        localSelectedCosts = newSet
+                                        saveState(newSelectedCosts = newSet)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(cost)
                             }
                         }
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Row for Cancel/Apply, full width buttons
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = onDismiss,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Cancel")
-                            }
-
-                            Button(
-                                onClick = {
-                                    // Apply all local changes to parent state
-                                    onTimeFilterChange(localTimeFilter)
-                                    onCuisinesChange(localSelectedCuisines)
-                                    onCostsChange(localSelectedCosts)
-                                    onFriendsChange(localSelectedFriends)
-                                    onShowOnlyFavouritesChange(localShowOnlyFavourites)
-                                    onApply()
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Apply")
+                        // Friend Filter
+                        Text("Friend Filter", style = MaterialTheme.typography.titleMedium)
+                        if (allFriendNames.isEmpty()) {
+                            Text("No friends found.")
+                        } else {
+                            allFriendNames.forEach { friendName ->
+                                val isSelected = friendName in localSelectedFriends
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val newSet = localSelectedFriends.toMutableSet()
+                                            if (isSelected) newSet.remove(friendName) else newSet.add(friendName)
+                                            localSelectedFriends = newSet
+                                            saveState(newSelectedFriends = newSet)
+                                        }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = { checked ->
+                                            val newSet = localSelectedFriends.toMutableSet()
+                                            if (checked) newSet.add(friendName) else newSet.remove(friendName)
+                                            localSelectedFriends = newSet
+                                            saveState(newSelectedFriends = newSet)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(friendName)
+                                }
                             }
                         }
                     }
                 }
+                // Fixed undo/redo row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { undo() },
+                        modifier = Modifier.weight(1f),
+                        enabled = historyIndex > 0
+                    ) {
+                        Text("Undo")
+                    }
+                    Button(
+                        onClick = { redo() },
+                        modifier = Modifier.weight(1f),
+                        enabled = historyIndex < history.size - 1
+                    ) {
+                        Text("Redo")
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                // Fixed Cancel and Apply row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            onTimeFilterChange(localTimeFilter)
+                            onCuisinesChange(localSelectedCuisines)
+                            onCostsChange(localSelectedCosts)
+                            onFriendsChange(localSelectedFriends)
+                            onShowOnlyFavouritesChange(localShowOnlyFavourites)
+                            onApply()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Apply")
+                    }
+                }
             }
         },
-        confirmButton = {}
+        confirmButton = {},
+        dismissButton = {}
     )
 }
 

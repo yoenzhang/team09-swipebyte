@@ -31,6 +31,7 @@ playServicesMaps = "19.1.0"
 junitJupiter = "5.8.1"
 runtimeLivedataVersion = "1.7.8"
 roomKtx = "2.6.1"
+uiautomator = "2.3.0"
 
 [libraries]
 accompanist-pager = { module = "com.google.accompanist:accompanist-pager", version.ref = "accompanistPager" }
@@ -76,6 +77,7 @@ ui = { module = "androidx.compose.ui:ui" }
 ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomKtx" }
+androidx-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

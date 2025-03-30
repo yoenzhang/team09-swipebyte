@@ -236,35 +236,54 @@ fun CommunityFavouritesFilterDialog(
     onApply: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var history by remember { mutableStateOf(listOf(FilterMemento(timeFilter, selectedCuisines, selectedCosts))) }
+    // Use local state for all filter values.
+    var localTimeFilter by remember { mutableStateOf(timeFilter) }
+    var localSelectedCuisines by remember { mutableStateOf(selectedCuisines) }
+    var localSelectedCosts by remember { mutableStateOf(selectedCosts) }
+    var localYelpRatingFilter by remember { mutableStateOf(yelpRatingFilter) }
+    var localCustomRatingFilter by remember { mutableStateOf(customRatingFilter) }
+
+    // Create history that includes all filter parameters.
+    data class FilterState(
+        val timeFilter: String,
+        val selectedCuisines: Set<String>,
+        val selectedCosts: Set<String>,
+        val yelpRatingFilter: Float,
+        val customRatingFilter: Float
+    )
+    var history by remember { mutableStateOf(listOf(FilterState(localTimeFilter, localSelectedCuisines, localSelectedCosts, localYelpRatingFilter, localCustomRatingFilter))) }
     var historyIndex by remember { mutableIntStateOf(0) }
 
     fun undo() {
         if (historyIndex > 0) {
             historyIndex--
-            val previousState = history[historyIndex]
-            onTimeFilterChange(previousState.timeFilter)
-            onCuisinesChange(previousState.selectedCuisines)
-            onCostsChange(previousState.selectedCosts)
+            val previous = history[historyIndex]
+            localTimeFilter = previous.timeFilter
+            localSelectedCuisines = previous.selectedCuisines
+            localSelectedCosts = previous.selectedCosts
+            localYelpRatingFilter = previous.yelpRatingFilter
+            localCustomRatingFilter = previous.customRatingFilter
         }
     }
-
     fun redo() {
         if (historyIndex < history.size - 1) {
             historyIndex++
-            val nextState = history[historyIndex]
-            onTimeFilterChange(nextState.timeFilter)
-            onCuisinesChange(nextState.selectedCuisines)
-            onCostsChange(nextState.selectedCosts)
+            val next = history[historyIndex]
+            localTimeFilter = next.timeFilter
+            localSelectedCuisines = next.selectedCuisines
+            localSelectedCosts = next.selectedCosts
+            localYelpRatingFilter = next.yelpRatingFilter
+            localCustomRatingFilter = next.customRatingFilter
         }
     }
-
     fun saveState(
-        newTimeFilter: String = timeFilter,
-        newSelectedCuisines: Set<String> = selectedCuisines,
-        newSelectedCosts: Set<String> = selectedCosts
+        newTimeFilter: String = localTimeFilter,
+        newSelectedCuisines: Set<String> = localSelectedCuisines,
+        newSelectedCosts: Set<String> = localSelectedCosts,
+        newYelpRatingFilter: Float = localYelpRatingFilter,
+        newCustomRatingFilter: Float = localCustomRatingFilter
     ) {
-        val newState = FilterMemento(newTimeFilter, newSelectedCuisines, newSelectedCosts)
+        val newState = FilterState(newTimeFilter, newSelectedCuisines, newSelectedCosts, newYelpRatingFilter, newCustomRatingFilter)
         if (historyIndex < history.size - 1) {
             history = history.subList(0, historyIndex + 1)
         }
@@ -276,114 +295,132 @@ fun CommunityFavouritesFilterDialog(
         onDismissRequest = onDismiss,
         title = { Text("Filter Community Favorites") },
         text = {
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(8.dp)
-            ) {
-                Text("Time Filter", style = MaterialTheme.typography.titleMedium)
-                val timeOptions = listOf("Last 24 hours", "All Time")
-                timeOptions.forEach { option ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onTimeFilterChange(option)
-                                saveState(newTimeFilter = option)
+            // Overall column with fixed footer sections.
+            Column(modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp)) {
+                // Scrollable filter options.
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(8.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Time Filter
+                        Text("Time Filter", style = MaterialTheme.typography.titleMedium)
+                        val timeOptions = listOf("Last 24 hours", "All Time")
+                        timeOptions.forEach { option ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        localTimeFilter = option
+                                        saveState(newTimeFilter = option)
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = (localTimeFilter == option),
+                                    onClick = {
+                                        localTimeFilter = option
+                                        saveState(newTimeFilter = option)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(option)
                             }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = (timeFilter == option),
-                            onClick = {
-                                onTimeFilterChange(option)
-                                saveState(newTimeFilter = option)
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        // Cuisine Preferences
+                        Text("Cuisine Preferences", style = MaterialTheme.typography.titleMedium)
+                        val allCuisines = listOf("Italian", "Chinese", "Mexican", "Indian", "American", "Japanese", "Thai")
+                        allCuisines.forEach { cuisine ->
+                            val isSelected = cuisine in localSelectedCuisines
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val newSet = localSelectedCuisines.toMutableSet()
+                                        if (isSelected) newSet.remove(cuisine) else newSet.add(cuisine)
+                                        localSelectedCuisines = newSet
+                                        saveState(newSelectedCuisines = newSet)
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { checked ->
+                                        val newSet = localSelectedCuisines.toMutableSet()
+                                        if (checked) newSet.add(cuisine) else newSet.remove(cuisine)
+                                        localSelectedCuisines = newSet
+                                        saveState(newSelectedCuisines = newSet)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(cuisine)
                             }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        // Cost Preferences
+                        Text("Cost Preferences", style = MaterialTheme.typography.titleMedium)
+                        val costOptions = listOf("$", "$$", "$$$", "$$$$")
+                        costOptions.forEach { cost ->
+                            val isSelected = cost in localSelectedCosts
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val newSet = localSelectedCosts.toMutableSet()
+                                        if (isSelected) newSet.remove(cost) else newSet.add(cost)
+                                        localSelectedCosts = newSet
+                                        saveState(newSelectedCosts = newSet)
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { checked ->
+                                        val newSet = localSelectedCosts.toMutableSet()
+                                        if (checked) newSet.add(cost) else newSet.remove(cost)
+                                        localSelectedCosts = newSet
+                                        saveState(newSelectedCosts = newSet)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(cost)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        // Minimum Yelp Rating
+                        Text("Minimum Yelp Rating", style = MaterialTheme.typography.titleMedium)
+                        Slider(
+                            value = localYelpRatingFilter,
+                            onValueChange = {
+                                localYelpRatingFilter = it
+                                saveState(newYelpRatingFilter = it)
+                            },
+                            valueRange = 0f..5f,
+                            steps = 4
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(option)
+                        Text(String.format("%.1f", localYelpRatingFilter), style = MaterialTheme.typography.bodySmall)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        // Minimum Vote Count
+                        Text("Minimum Vote Count", style = MaterialTheme.typography.titleMedium)
+                        Slider(
+                            value = localCustomRatingFilter,
+                            onValueChange = {
+                                localCustomRatingFilter = it
+                                saveState(newCustomRatingFilter = it)
+                            },
+                            valueRange = 0f..100f,
+                            steps = 99
+                        )
+                        Text(localCustomRatingFilter.toInt().toString(), style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Cuisine Preferences", style = MaterialTheme.typography.titleMedium)
-                val allCuisines = listOf("Italian", "Chinese", "Mexican", "Indian", "American", "Japanese", "Thai")
-                allCuisines.forEach { cuisine ->
-                    val isSelected = cuisine in selectedCuisines
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                val newSet = selectedCuisines.toMutableSet()
-                                if (isSelected) newSet.remove(cuisine) else newSet.add(cuisine)
-                                onCuisinesChange(newSet)
-                                saveState(newSelectedCuisines = newSet)
-                            }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = isSelected,
-                            onCheckedChange = { checked ->
-                                val newSet = selectedCuisines.toMutableSet()
-                                if (checked) newSet.add(cuisine) else newSet.remove(cuisine)
-                                onCuisinesChange(newSet)
-                                saveState(newSelectedCuisines = newSet)
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(cuisine)
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Cost Preferences", style = MaterialTheme.typography.titleMedium)
-                val costOptions = listOf("$", "$$", "$$$", "$$$$")
-                costOptions.forEach { cost ->
-                    val isSelected = cost in selectedCosts
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                val newSet = selectedCosts.toMutableSet()
-                                if (isSelected) newSet.remove(cost) else newSet.add(cost)
-                                onCostsChange(newSet)
-                                saveState(newSelectedCosts = newSet)
-                            }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = isSelected,
-                            onCheckedChange = { checked ->
-                                val newSet = selectedCosts.toMutableSet()
-                                if (checked) newSet.add(cost) else newSet.remove(cost)
-                                onCostsChange(newSet)
-                                saveState(newSelectedCosts = newSet)
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(cost)
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Minimum Yelp Rating", style = MaterialTheme.typography.titleMedium)
-                Slider(
-                    value = yelpRatingFilter,
-                    onValueChange = onYelpRatingFilterChange,
-                    valueRange = 0f..5f,
-                    steps = 4
-                )
-                Text(String.format("%.1f", yelpRatingFilter), style = MaterialTheme.typography.bodySmall)
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Minimum Vote Count", style = MaterialTheme.typography.titleMedium)
-                Slider(
-                    value = customRatingFilter,
-                    onValueChange = onCustomRatingFilterChange,
-                    valueRange = 0f..100f,
-                    steps = 99
-                )
-                Text(customRatingFilter.toInt().toString(), style = MaterialTheme.typography.bodySmall)
-                Spacer(modifier = Modifier.height(16.dp))
+                // Fixed Undo/Redo row.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -404,18 +441,28 @@ fun CommunityFavouritesFilterDialog(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
+                // Fixed Cancel and Apply row.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = onApply,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Apply")
+                    }
+                }
             }
         },
-        confirmButton = {
-            Button(onClick = onApply) {
-                Text("Apply")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        confirmButton = {},
+        dismissButton = {}
     )
 }
 

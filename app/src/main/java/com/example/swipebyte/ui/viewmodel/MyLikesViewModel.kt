@@ -7,6 +7,7 @@ import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.db.models.FavouriteQueryable
 import com.example.swipebyte.ui.data.models.SwipeQueryable
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CoroutineScope
@@ -17,7 +18,7 @@ import kotlinx.coroutines.tasks.await
 class MyLikesViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
 
-    // Expose loading state to be collected by the UI
+    // Expose loading state to be collected by the UI (using Flow as in CommunityFavourites)
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
@@ -29,63 +30,69 @@ class MyLikesViewModel : ViewModel() {
 
     private val _favouritesMap = MutableStateFlow<Set<String>>(emptySet())
     val favouritesMap: StateFlow<Set<String>> = _favouritesMap
+
     private val _friendLikesMap = MutableStateFlow<Map<String, List<String>>>(emptyMap())
     val friendLikesMap: StateFlow<Map<String, List<String>>> = _friendLikesMap
 
-    fun fetchUserSwipedRestaurants(userId: String) {
-        _isLoading.value = true
-        
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val likedRestList = mutableListOf<Restaurant>()
-                val timestamps = mutableMapOf<String, Long>()
-                
-                // Get user swipes
-                val swipes = db.collection("userSwipes")
-                    .whereEqualTo("userId", userId)
-                    .whereEqualTo("action", 1) // Only likes (1)
-                    .get()
-                    .await()
+    // Listener registration for real-time updates
+    private var listenerRegistration: ListenerRegistration? = null
 
-                for (document in swipes.documents) {
-                    val restaurantId = document.getString("restaurantId") ?: continue
-                    val timestamp = document.getLong("timestamp") ?: 0L
-                    
-                    // Save timestamp data
-                    timestamps[restaurantId] = timestamp
-                    
-                    // Get restaurant details
-                    try {
-                        val restDoc = db.collection("restaurants").document(restaurantId).get().await()
-                        if (restDoc.exists()) {
-                            val restaurant = restDoc.toObject(Restaurant::class.java)
-                            restaurant?.let { 
-                                it.id = restaurantId
-                                likedRestList.add(it) 
+    /**
+     * Sets up a real-time snapshot listener to load the user's liked restaurants.
+     * This mimics the loading mechanics in CommunityFavouritesView.
+     */
+    fun firebaseSwipeListenerForLikes(userId: String) {
+        _isLoading.value = true
+        // Remove any previous listener to avoid duplicates
+        listenerRegistration?.remove()
+        listenerRegistration = db.collection("userSwipes")
+            .whereEqualTo("userId", userId)
+            .whereEqualTo("action", 1) // Only likes (action = 1)
+            .addSnapshotListener { snapshots, error ->
+                if (error != null) {
+                    _isLoading.value = false
+                    Log.e("MyLikesViewModel", "Error listening to swipes: ${error.message}")
+                    return@addSnapshotListener
+                }
+                if (snapshots != null) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val likedRestList = mutableListOf<Restaurant>()
+                            val timestamps = mutableMapOf<String, Long>()
+                            for (document in snapshots.documents) {
+                                val restaurantId = document.getString("restaurantId") ?: continue
+                                val timestamp = document.getLong("timestamp") ?: 0L
+                                timestamps[restaurantId] = timestamp
+                                try {
+                                    val restDoc = db.collection("restaurants").document(restaurantId).get().await()
+                                    if (restDoc.exists()) {
+                                        val restaurant = restDoc.toObject(Restaurant::class.java)
+                                        restaurant?.let {
+                                            it.id = restaurantId
+                                            likedRestList.add(it)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("MyLikesViewModel", "Error fetching restaurant details for $restaurantId: ${e.message}")
+                                }
                             }
+                            _likedRestaurants.value = likedRestList
+                            _timestampsMap.value = timestamps
+                            checkFavouritesStatus(likedRestList.map { it.id ?: "" })
+                        } catch (e: Exception) {
+                            Log.e("MyLikesViewModel", "Error processing swipes: ${e.message}")
+                        } finally {
+                            _isLoading.value = false
                         }
-                    } catch (e: Exception) {
                     }
                 }
-                
-                _likedRestaurants.value = likedRestList
-                _timestampsMap.value = timestamps
-                
-                checkFavouritesStatus(likedRestList.map { it.id ?: "" })
-                
-            } catch (e: Exception) {
-                Log.e("MyLikesViewModel", "Error fetching swiped restaurants: ", e)
-            } finally {
-                _isLoading.value = false
             }
-        }
     }
 
     private fun checkFavouritesStatus(restaurantIds: List<String>) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val favouriteIds = mutableSetOf<String>()
-                
                 for (id in restaurantIds) {
                     if (id.isNotEmpty()) {
                         val isInFavourites = FavouriteQueryable.isInFavourites(id)
@@ -94,15 +101,14 @@ class MyLikesViewModel : ViewModel() {
                         }
                     }
                 }
-                
                 _favouritesMap.value = favouriteIds
-                
             } catch (e: Exception) {
+                Log.e("MyLikesViewModel", "Error checking favourites: ${e.message}")
             }
         }
     }
 
-    // Public method to refresh favorites status without reloading all restaurants
+    // Public method to refresh favourites status without reloading all restaurants
     fun refreshFavouritesStatus() {
         val currentRestaurantIds = _likedRestaurants.value.mapNotNull { it.id }
         checkFavouritesStatus(currentRestaurantIds)
@@ -110,32 +116,32 @@ class MyLikesViewModel : ViewModel() {
 
     fun fetchFriendLikes(friendIds: List<String>) {
         if (friendIds.isEmpty()) return
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val friendLikesResult = mutableMapOf<String, MutableList<String>>()
-
                 for (friendId in friendIds) {
                     val swipes = db.collection("userSwipes")
                         .whereEqualTo("userId", friendId)
-                        .whereEqualTo("action", 1) // Only likes (1)
+                        .whereEqualTo("action", 1) // Only likes
                         .get()
                         .await()
-
                     for (document in swipes.documents) {
                         val restaurantId = document.getString("restaurantId") ?: continue
                         val displayName = document.getString("displayName") ?: continue
-                        
                         val likesList = friendLikesResult.getOrPut(restaurantId) { mutableListOf() }
                         likesList.add(displayName)
                     }
                 }
-
                 _friendLikesMap.value = friendLikesResult
             } catch (e: Exception) {
-                Log.e("MyLikesViewModel", "Error fetching friend likes: ", e)
+                Log.e("MyLikesViewModel", "Error fetching friend likes: ${e.message}")
                 _friendLikesMap.value = emptyMap()
             }
         }
+    }
+
+    override fun onCleared() {
+        listenerRegistration?.remove()
+        super.onCleared()
     }
 }
