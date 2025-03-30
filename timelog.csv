@@ -27,7 +27,7 @@ Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Ta
 2024-03-17,4,0,0,5,4, add friends list and friends table in firebase + filters fixed + map
 2024-03-19,1,1,1,1,1, start cleaning code in classes
 2024-03-19,3,0,0,0,0, implement observer in homeview
-2024-03-18,2,4,4,1,1, timestamps for likes + swipe count, ratings + distnace
+2024-03-18,2,4,4,1,1, timestamps for likes + swipe count ratings + distnace
 2024-03-19,3,1,2,3,3, fix bugs in comm faves view model
 2024-03-20,2,0,2,2,2, add friends request ability and friends filtering in my likes
 2024-03-24,0,4,0,0,0, add memento class to filters
@@ -38,7 +38,7 @@ Date,Mahan Sharifi-Ghazvini,Calix Huang,Yoen Zhang,Jeff Chiu,Arijit Chowdhury,Ta
 2024-03-28,5,3,2,3,2, fixed the filters + location + clean up
 2024-03-28,1,1,1,1,1, Team meeting
 2024-03-29,4,3,3,3,5, Added thorough testing to data models and pages
-2024-03-30,2,5,2,2,1, clean up code in files, fix comm faves filtering on location and time
+2024-03-30,2,5,2,2,1, clean up code in files fix comm faves filtering on location and time
 2024-03-31,0,0,0,0,0, TBD
 2024-04-01,0,0,0,0,0,Report 
 2024-04-02,0,0,0,0,0,Report
