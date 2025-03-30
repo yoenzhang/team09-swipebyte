@@ -1,17 +1,12 @@
 package com.example.swipebyte.ui.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.ui.db.models.FriendRequest
 import com.example.swipebyte.ui.db.repository.FriendRepo
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import androidx.lifecycle.*
 import kotlinx.coroutines.launch
 
 class FriendViewModel : ViewModel() {

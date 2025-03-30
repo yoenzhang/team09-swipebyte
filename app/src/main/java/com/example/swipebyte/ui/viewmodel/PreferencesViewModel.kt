@@ -1,7 +1,6 @@
 package com.example.swipebyte.ui.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.swipebyte.ui.db.observer.PreferencesDataObserver
 import com.example.swipebyte.ui.db.observer.UserPreferences

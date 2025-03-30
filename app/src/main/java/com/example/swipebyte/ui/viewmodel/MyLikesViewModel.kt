@@ -2,15 +2,14 @@ package com.example.swipebyte.ui.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.swipebyte.ui.data.models.Restaurant
 import com.example.swipebyte.ui.db.repository.FavouriteQueryable
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -54,7 +53,7 @@ class MyLikesViewModel : ViewModel() {
                     return@addSnapshotListener
                 }
                 if (snapshots != null) {
-                    CoroutineScope(Dispatchers.IO).launch {
+                    viewModelScope.launch(Dispatchers.IO) {
                         try {
                             val likedRestList = mutableListOf<Restaurant>()
                             val timestamps = mutableMapOf<String, Long>()
@@ -63,7 +62,10 @@ class MyLikesViewModel : ViewModel() {
                                 val timestamp = document.getLong("timestamp") ?: 0L
                                 timestamps[restaurantId] = timestamp
                                 try {
-                                    val restDoc = db.collection("restaurants").document(restaurantId).get().await()
+                                    val restDoc = db.collection("restaurants")
+                                        .document(restaurantId)
+                                        .get()
+                                        .await()
                                     if (restDoc.exists()) {
                                         val restaurant = restDoc.toObject(Restaurant::class.java)
                                         restaurant?.let {
@@ -89,7 +91,7 @@ class MyLikesViewModel : ViewModel() {
     }
 
     private fun checkFavouritesStatus(restaurantIds: List<String>) {
-        CoroutineScope(Dispatchers.IO).launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val favouriteIds = mutableSetOf<String>()
                 for (id in restaurantIds) {
@@ -115,7 +117,7 @@ class MyLikesViewModel : ViewModel() {
 
     fun fetchFriendLikes(friendIds: List<String>) {
         if (friendIds.isEmpty()) return
-        CoroutineScope(Dispatchers.IO).launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val friendLikesResult = mutableMapOf<String, MutableList<String>>()
                 for (friendId in friendIds) {
