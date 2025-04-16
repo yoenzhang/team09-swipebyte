@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.swipebyte">
+    package="com.swipebyte">
 
     <!-- Location permissions - these should already be in your manifest but make sure they're there -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

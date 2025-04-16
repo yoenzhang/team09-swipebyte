@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.swipebyte"
+    namespace = "com.swipebyte"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.swipebyte"
+        applicationId = "com.swipebyte"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
